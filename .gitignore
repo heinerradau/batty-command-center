@@ -1,0 +1,29 @@
+# BCC — no secrets, no data, no backups in the repo
+
+# Data files (personal/project data)
+data.js
+data.json
+*.bak
+backups/
+
+# Python
+__pycache__/
+*.pyc
+
+# System files
+.DS_Store
+._*
+
+# Token/secret files
+token-status.json
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Never commit these even as examples
+.env
+secrets.json
+*.key
+*.pem

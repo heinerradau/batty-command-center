@@ -1,0 +1,26 @@
+[Unit]
+Description=BCC Backend Proxy — Batty Command Center
+After=network.target
+
+[Service]
+Type=simple
+User=clawbox
+WorkingDirectory=/home/clawbox
+Environment=HOME=/home/clawbox
+Environment=BCC_PORT=8888
+Environment=BCC_AGENT=main
+Environment=BCC_THINKING=medium
+Environment=BCC_OPENCLAW_BIN=/home/clawbox/.npm-global/bin/openclaw
+Environment=BCC_OPENCLAW_CWD=/home/clawbox/.openclaw
+Environment=BCC_PROJECTS_DIR=/home/clawbox/.openclaw/workspace/projects
+Environment=BCC_STATIC_DIR=/home/clawbox/clawbox/data/webapps/task-central
+Environment=BCC_AGENT_TIMEOUT=150
+Environment=BCC_QUEUE_DIR=/tmp/bcc
+Environment=BCC_MAX_TURNS=6
+Environment=BCC_PLAY_CONCURRENCY=2
+ExecStart=/usr/bin/python3 /home/clawbox/bcc/bcc-proxy.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

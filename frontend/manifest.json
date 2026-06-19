@@ -1,0 +1,17 @@
+{
+  "name": "Batty Command Center",
+  "short_name": "Batty Command",
+  "description": "Projekte, Tasks, Chat & Audio mit AlphaBatty — iPhone & Desktop.",
+  "lang": "de",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14141f",
+  "theme_color": "#14141f",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
