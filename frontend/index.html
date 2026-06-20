@@ -581,9 +581,11 @@ h1.vt{font-size:23px;letter-spacing:-.3px;margin:2px 0 16px;font-weight:750}
    Single-File. Mock + KV-Fallback solange BCC.config-Endpoints null sind.
    ============================================================================ */
 const BCC={};
-BCC.VERSION="6.5.6";
+BCC.VERSION="6.5.8";
 BCC.CHANGELOG=[
-  {v:"6.5.6",notes:["Verschieben ist jetzt ein aufklappbarer BAUM — vorab geöffnet bis zur aktuellen Position; Klick auf Ordner öffnet Unterordner, „Hierher\" verschiebt samt Unterbau","Rechte Leiste: Ordner klappen auf Klick NESTED auf (statt zu navigieren); kleines ›-Icon öffnet den Raum","Großes schwarzes ▶ PLAY in der rechten Leiste; Vorschläge mit ▶/✕","PLAY nie mehr blockiert: fehlt das Ziel, leitet Batty es aus dem Titel ab (kein „Ziel fehlt\" mehr)","Agentische Loop-Struktur dokumentiert (AGENTIC-LOOP.md) für AlphaBatty"]},
+  {v:"6.5.8",notes:["König-Übersicht: echte verschachtelte Karten — Workspace → Projekt → Unterprojekt → Tasks, mit farbigem Seitenstreifen (Branch-Farbe) und Tiefen-Einrückung","Großer, gut bedienbarer Auge-Toggle (offen/zu) zum Auf-/Zuklappen auf jeder Ebene — im Zentrum und in der rechten Leiste","Rechte Leiste: gleiche Verschachtelungs-Logik (Streifen + Auge)"]},
+  {v:"6.5.7",notes:["Zustände (fertig/läuft/grau→OK); Workspace-Sichtbarkeit; eine gemischte Liste links; 6 Status-Boxen klickbar; 4 alte Boxen raus"]},
+  {v:"6.5.6",notes:["Verschieben als Baum; rechte Leiste nested auf Klick + großes schwarzes PLAY; kein Ziel-Gating"]},
   {v:"6.5.5",notes:["Rechtsklick-Menü vereinheitlicht: 6 Farben, Löschen (.trash), Kalender ausklappbar, Inline-Umbenennen, nur noch Verschieben"]},
   {v:"6.5.4",notes:["Kalender flush sticky; Timeout blinkt rot; Queue blinkt blau/gelb"]},
   {v:"6.5.3",notes:["Rechte Leiste ziehbar; Heiner/Batty-Filter oben über den Boxen"]},
@@ -1007,7 +1009,7 @@ function renderSidebar(){
   const noneG=groups.find(g=>g.key==="_none"), lostG=groups.find(g=>g.key===LOST);
   const ordered=[...main,...(noneG?[noneG]:[]),...(lostG?[lostG]:[])].filter(Boolean);
   const wsWrap=el("div","ws-list");
-  ordered.forEach(g=>{if(!g.items.length)return;
+  ordered.forEach(g=>{if(!g.items.length&&(g.key==="_none"||g.key===LOST))return;
     const hidden=(BCC._hiddenWs||{})[g.key];
     const b=el("button","ws-btn"+(hidden?" ws-hidden":""));b.style.setProperty("--wsc",g.color);
     const blink=wsActive(g);
@@ -1039,42 +1041,28 @@ function renderSidebar(){
       wrap.append(cl);
     }
   }
-  // V6.4.8: EINE vereinheitlichte Chat-Liste — jeder berührte/aktive Chat erscheint hier:
-  // Task-, Projekt-, Workspace-, Dashboard- und Haupt-Chat. Neueste oben, mit Blink-Status.
-  if(!q){
+  // V6.5.7: EINE vereinheitlichte Liste — KEIN Unterschied Chat/Task. Alles Aktive, neueste zuerst, farbcodiert.
+  {
     const chats=collectChats(hiddenWs);
-    if(chats.length){
-      wrap.append(el("div","side-divider","Chats · zuletzt"));
-      const cl=el("div","side-tasks");
-      chats.slice(0,30).forEach(ch=>{
-        const b=el("button","stask"+(ch.blink?" blink":""));
-        if(ch.active)b.setAttribute("aria-current","page");
-        b.innerHTML=`<span class="pdot ${ch.dotCls}"></span><span class="sl">${ch.icon||""} ${ch.label}</span><span class="sp">${ch.tag||""}</span>`;
-        b.onclick=ch.go;cl.append(b)});
-      wrap.append(cl);
-    }
+    const seenTask=new Set(chats.filter(c=>c.session.startsWith("task-")).map(c=>c.session.slice(5)));
+    let activeTasks=BCC.state.projects.flatMap(p=>(p.tasks||[]).map(t=>({t,p})))
+      .filter(({t})=>t.status!=="idea"&&(taskBusy(t)||t.running||t.status==="in_progress"||t.status==="blocked"||t.status==="today"||sessionTouch("task-"+t.id)))
+      .filter(({t})=>!seenTask.has(t.id))
+      .filter(({p})=>{const wss=inferWorkspaces(p);return wss.length===0||!wss.every(w=>hiddenWs[w])});
+    const taskEntries=activeTasks.map(({t,p})=>{const ws=workStatus(t);return{label:t.title,icon:"",tag:WS_LABEL[inferWorkspaces(p)[0]]?.slice(0,3)||"",dotCls:ws.cls||"grey",blink:ws.blink,active:BCC.state.route==="task"&&BCC.state.taskId===t.id,done:t.status==="done",title:p.name,touch:Math.max(sessionTouch("task-"+t.id),taskBusy(t)?Date.now():0,t.updatedAt||0,p.updatedAt||0),go:()=>go("task",t.id)};});
+    let all=[...chats.map(c=>({...c,done:false})),...taskEntries];
+    if(q)all=all.filter(it=>(it.label||"").toLowerCase().includes(q));
+    all.sort((a,b)=>(b.blink?1:0)-(a.blink?1:0)||(b.touch||0)-(a.touch||0));
+    wrap.append(el("div","side-divider","Zuletzt"));
+    const cl=el("div","side-tasks");
+    all.slice(0,45).forEach(it=>{const b=el("button","stask"+(it.blink?" blink":"")+(it.done?" done":""));
+      if(it.active)b.setAttribute("aria-current","page");
+      if(it.title)b.title=it.title;
+      b.innerHTML=`<span class="pdot ${it.dotCls||"grey"}"></span><span class="sl">${it.icon?_v65esc(it.icon)+" ":""}${_v65esc(it.label)}</span><span class="sp">${_v65esc(it.tag||"")}</span>`;
+      b.onclick=it.go;cl.append(b)});
+    if(!all.length)cl.append(el("div","empty",q?"Nichts gefunden.":"Noch nichts aktiv."));
+    wrap.append(cl);
   }
-  wrap.append(el("div","side-divider","Tasks · zuletzt"));
-  let tasks=BCC.state.projects.flatMap(p=>(p.tasks||[]).map(t=>({t,p})))
-    .filter(({t})=>t.status!=="idea")
-    .filter(({p})=>{const wss=inferWorkspaces(p);return wss.length===0||!wss.every(w=>hiddenWs[w])});
-  if(q)tasks=tasks.filter(({t,p})=>(t.title||"").toLowerCase().includes(q)||(p.name||"").toLowerCase().includes(q));
-  // V6.4.1: Reihenfolge — was ICH gerade berührt habe IMMER ganz oben (überlebt Reload via _touch),
-  // dann laufende/wartende, dann nach Projekt-Aktualität.
-  const tact=({t,p})=>{
-    const mine=Math.max(sessionTouch("task-"+t.id), projBusy(p.slug)?sessionTouch("proj-"+p.slug):0);
-    const busy=taskBusy(t)?1:0;
-    return busy*1e13 + (mine?1e12+mine/1e3:0) + (t.running||t.status==="in_progress"?1e10:0) + (t.status==="blocked"?5e9:0) + (p.updatedAt||0);
-  };
-  tasks.sort((a,b)=>tact(b)-tact(a));
-  const tl=el("div","side-tasks");
-  tasks.slice(0,40).forEach(({t,p})=>{const ws=workStatus(t);
-    const b=el("button","stask"+(ws.blink?" blink":"")+(t.status==="done"?" done":""));
-    if(BCC.state.route==="task"&&BCC.state.taskId===t.id)b.setAttribute("aria-current","page");
-    b.innerHTML=`<span class="pdot ${ws.cls}"></span><span class="sl">${t.title}</span><span class="sp">${WS_LABEL[inferWorkspaces(p)[0]]?.slice(0,3)||""}</span>`;
-    b.title=p.name;b.onclick=()=>go("task",t.id);tl.append(b)});
-  if(!tasks.length)tl.append(el("div","empty",q?"Nichts gefunden.":"Keine offenen Tasks."));
-  wrap.append(tl);
 }
 
 /* ============================================================================
@@ -1232,6 +1220,9 @@ function renderWorkspace(c){const key=BCC.state.wsKey;const meta=WS_DEF.find(w=>
 
 const IC_PLAY='<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>';
 const IC_STOP='<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const IC_PAUSE='<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+const IC_EYE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+const IC_EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M10.6 6.1A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3.2 3.8M6.3 7.3A17 17 0 0 0 2 12s3.5 6 10 6a10.6 10.6 0 0 0 3.9-.7"/></svg>';
 const IC_PEN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L18 10l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>';
 function taskRunState(t){return BCC.run[t.id]==="queued"?"queued":((t.running||BCC.run[t.id]==="running")?"run":(t.status==="blocked"?"blocked":(t.status==="in_progress"?"marker":null)))}
 function subInfo(p,t){const subs=(p.tasks||[]).filter(x=>x.parentTaskId===t.id);const done=subs.filter(s=>s.status==="done").length;return{subs,done,total:subs.length}}
@@ -1280,16 +1271,17 @@ function taskRow(t,p,opts={}){
   row.onclick=open;
   row.oncontextmenu=e=>{e.preventDefault();go("task",t.id)};
   row.append(dot,mid);
-  const rs=taskRunState(t);
-  // V6.5.2: Vorschlag (Idee/unklar) → nur ▶ annehmen / ✕ ablehnen. Sonst normale Play-Logik.
-  if(V65.isSuggestion&&V65.isSuggestion(t)){
-    const acc=el("button","sugbtn play");acc.innerHTML=IC_PLAY;acc.title="Annehmen — wird ein Task mit Prio-Farbe";acc.onclick=e=>{e.stopPropagation();V65.accept(t)};
+  // V6.5.7: einheitliche Aktion je Zustand
+  const act=V65.actionOf(t);
+  if(act==="done"){row.classList.add("done");}
+  else if(act==="pause"){const a=el("button","playpill pausepill");a.innerHTML=IC_PAUSE+"Pause";a.title="Autonome Bearbeitung stoppen";a.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(a)}
+  else if(act==="ok"){const a=el("button","okpill");a.textContent="OK";a.title="Zu 🟣 Idee entwickeln — dann play-fähig";a.onclick=e=>{e.stopPropagation();V65.toIdea(t)};row.append(a)}
+  else if(act==="suggest"){
+    const acc=el("button","sugbtn play");acc.innerHTML=IC_PLAY;acc.title="Annehmen & starten";acc.onclick=e=>{e.stopPropagation();V65.play(t)};
     const rej=el("button","sugbtn x");rej.textContent="✕";rej.title="Ablehnen — verwerfen";rej.onclick=e=>{e.stopPropagation();V65.reject(t)};
     row.append(acc,rej);
   }
-  else if(rs==="run"){const a=el("button","playpill");a.innerHTML=IC_STOP+"Stop";a.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(a)}
-  else if(playable(t)&&t.status!=="done"){const a=el("button","playpill");a.title="▶️ "+t.vision;a.innerHTML=IC_PLAY+(rs==="queued"?"queued":t.status==="blocked"?"erneut":"Play");a.onclick=e=>{e.stopPropagation();confirmPlay(t)};row.append(a)}
-  else if(!opts.compact&&t.status!=="done"){const a=el("button","playpill");a.innerHTML=IC_PLAY+"Play";a.title="Auto-Play — Ziel wird aus dem Titel abgeleitet";a.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(a)}
+  else{const a=el("button","playpill");a.innerHTML=IC_PLAY+"Play";a.title="Auto-Play";a.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(a)}
   const menu=el("button","tmenu","⋯");menu.onclick=e=>{e.stopPropagation();openTaskMenu(t.id)};
   row.append(menu);return row;
 }
@@ -1513,34 +1505,7 @@ function renderHome(c){
   const openP=BCC.state.projects.filter(p=>!p.done&&!p.archived&&(who==="all"||matchOpen(p)));
   const openT=BCC.state.projects.flatMap(p=>p.tasks||[]).filter(t=>whoMatch(t)&&!["done","idea"].includes(t.status)).length;
   const redT=BCC.state.projects.flatMap(p=>p.tasks||[]).filter(t=>whoMatch(t)&&(t.status==="today"||t.prio==="red"||t.status==="blocked")).length;
-  const sum=el("p","ovsum");
-  sum.innerHTML=`<b>${openP.length} aktive Projekte</b>, <b>${openT} offene Tasks</b>${redT?`, davon <b style="color:var(--red)">${redT} dringend</b>`:""}.`;
-  w.append(sum);
-  const dash=el("div","dash");
-  const boxDefs=[["Offene Tasks",String(openT),"über alle Projekte","open"],["Dringend",String(redT),"heute/blockiert/rot","urgent"],
-   ["Aktive Projekte",String(openP.length),"in Arbeit","active"],["Presse-Antworten","1","von 14 Pitches","press"]];
-  boxDefs.forEach(([k,v,s,fkey])=>{
-    const active=BCC._ovBox===fkey;
-    const d=el("div","dcard clickable"+(active?" expanded":""));d.innerHTML=`<div class="k">${k}</div><div class="v">${v}</div><div class="s">${s} ${active?"▲":"▼"}</div>`;
-    d.onclick=()=>{BCC._ovBox=active?null:fkey;rerender()};dash.append(d)});
-  w.append(dash);
-  // V6.4.9: aufgeklappte Box → ihre Tasks darunter, in den Kalender ziehbar
-  if(BCC._ovBox){
-    const box=el("div","ovbox-tasks");
-    const items=tasksForFilter(BCC._ovBox);
-    box.append(el("div","ovbox-hint",`${items.length} Aufgaben — in den Kalender oben ziehen, um sie einzuplanen 📅`));
-    if(!items.length)box.append(el("div","empty","Nichts hier."));
-    items.forEach(({t,p})=>{
-      const ws=workStatus(t);
-      const row=el("div","ovbox-task");row.setAttribute("draggable","true");
-      row.innerHTML=`<span class="pdot ${ws.cls}${ws.blink?" blink":""}"></span><span class="obt-t">${t.title}</span><span class="obt-p">${p.name}</span><span class="obt-grip">⠿</span>`;
-      row.addEventListener("dragstart",()=>{BCC._dragTask=t.id});
-      row.addEventListener("dragend",()=>{BCC._dragTask=null});
-      row.onclick=e=>{if(e.target.closest(".obt-grip"))return;go("task",t.id)};
-      box.append(row);
-    });
-    w.append(box);
-  }
+  // V6.5.7: 4 alte Boxen + Summary entfernt — königliche Tagesanalyse oben übernimmt
   // V6.4.4: Tägliche Spend & Leads-Kurve aus dem Marketing-Dashboard (falls Daten vorhanden)
   const chartHost=el("div");chartHost.id="ovSpendLeads";w.append(chartHost);
   loadSpendLeadsChart(chartHost);
@@ -1551,39 +1516,55 @@ function renderHome(c){
   const bW=el("button","ov-act");bW.innerHTML="＋ Workspace";bW.onclick=()=>openWorkspaceCreate();
   acts.append(bP,bW);w.append(acts);
 
-  // V6.4.4: Struktur Workspace → Projekt → Tasks. Man sieht endlich, welche Aufgaben in welchem Projekt sind.
-  const groups=[...WS_DEF.map(d=>({key:d[0],label:d[2],icon:d[1],color:d[3],projs:[]})),
-    {key:"_none",label:"Ohne Workspace",icon:"📂",color:"#7b7c83",projs:[]}];
-  openP.forEach(p=>{const wss=inferWorkspaces(p);if(!wss.length)groups.find(g=>g.key==="_none").projs.push(p);
-    else wss.forEach(k=>{const g=groups.find(x=>x.key===k);if(g)g.projs.push(p)})});
+  // V6.5.8: Verschachtelte Karten — Workspace → Projekt → Unterprojekt → Tasks.
+  // Farbiger Seitenstreifen = Branch/Workspace-Farbe, Einrückung = Tiefe, Auge = auf/zu.
+  V65.tree();
+  const groups=[...WS_DEF.map(d=>({key:d[0],label:d[2],icon:d[1],color:d[3]})),
+    {key:"_none",label:"Ohne Workspace",icon:"📂",color:"#7b7c83"}];
+  const eyeBtn=(exp)=>`<button class="ov-eye" title="${exp?"Zuklappen":"Aufklappen"}">${exp?IC_EYE:IC_EYE_OFF}</button>`;
+  function renderOvProj(n,depth,wscolor){
+    const p=n.raw;if(!p)return document.createComment("");
+    const st=V65.ST[V65.status6(n)]||V65.ST.grau;
+    const childProjs=(n.children||[]).filter(c=>c.kind==="project").sort((a,b)=>projectRank(b.raw)-projectRank(a.raw));
+    const tks=(p.tasks||[]).filter(t=>!["done","idea"].includes(t.status)).filter(whoMatch)
+      .sort((a,b)=>(a.status==="blocked"?0:a.status==="in_progress"?1:2)-(b.status==="blocked"?0:b.status==="in_progress"?1:2));
+    const hasMore=childProjs.length||tks.length;
+    const expSet=V65.ovExp();const exp=(n.id in expSet)?expSet[n.id]:(depth===0);
+    const card=el("div","ovc"+(V65.status6(n)==="gruen"?" done":""));
+    card.style.setProperty("--wsc",wscolor);card.style.setProperty("--d",depth);
+    const pd=projectDot(p);const dotStyle=pd.cls?"":`style="background:${wscolor};border-color:${wscolor}"`;
+    const head=el("div","ovc-head");
+    head.innerHTML=`<span class="pdot ${pd.cls}${pd.blink?" blink":""}" ${dotStyle}></span>`+
+      `<span class="ovc-name">${p.emoji?_v65esc(p.emoji)+" ":""}${_v65esc(p.name)}</span>`+
+      (depth>0?`<span class="ovc-embed">↳ in ${_v65esc((V65._byId[n.parentId]||{}).name||"")}</span>`:"")+
+      `<span class="ovc-meta">${openTasks(p)} offen</span>`+(hasMore?eyeBtn(exp):"");
+    head.querySelector(".ovc-name").onclick=()=>go("project",p.slug);
+    head.querySelector(".pdot").onclick=()=>go("project",p.slug);
+    const eye=head.querySelector(".ov-eye");if(eye)eye.onclick=e=>{e.stopPropagation();expSet[n.id]=!exp;rerender()};
+    head.querySelector(".ovc-meta").onclick=()=>go("project",p.slug);
+    card.append(head);
+    if(exp&&hasMore){
+      const body=el("div","ovc-body");
+      tks.slice(0,8).forEach(t=>body.append(taskRow(t,{compact:false})));
+      if(tks.length>8){const more=el("button","ovc-more");more.textContent=`+${tks.length-8} weitere Tasks in ${p.name}`;more.onclick=()=>go("project",p.slug);body.append(more)}
+      childProjs.forEach(c=>body.append(renderOvProj(c,depth+1,wscolor)));
+      card.append(body);
+    }
+    return card;
+  }
   groups.forEach(g=>{
-    const ps=g.projs.filter(p=>(p.tasks||[]).some(whoMatch)||who==="all").sort((a,b)=>projectRank(b)-projectRank(a));
-    if(!ps.length)return;
-    const head=el("div","ov-ws");head.innerHTML=`<span class="ov-ws-dot" style="background:${g.color}"></span><span class="ov-ws-name">${g.icon} ${g.label}</span><span class="n">${ps.length}</span>`;
+    const wsNode=g.key==="_none"?null:V65.node("ws:"+g.key);
+    let tops=(wsNode?(wsNode.children||[]).filter(c=>c.kind==="project"):
+      openP.filter(p=>!inferWorkspaces(p).length).map(p=>V65.node("proj:"+p.slug)))
+      .filter(n=>n&&n.raw&&!n.raw.archived);
+    tops=tops.filter(n=>who==="all"||(n.raw.tasks||[]).some(whoMatch)||(n.children||[]).length)
+      .sort((a,b)=>projectRank(b.raw)-projectRank(a.raw));
+    if(!tops.length)return;
+    const head=el("div","ov-ws");head.style.setProperty("--wsc",g.color);
+    head.innerHTML=`<span class="ov-ws-dot" style="background:${g.color}"></span><span class="ov-ws-name">${g.icon} ${g.label}</span><span class="n">${tops.length}</span>`;
     head.onclick=()=>{if(g.key!=="_none")go("workspace",g.key)};
     w.append(head);
-    ps.forEach(p=>{
-      const pcard=el("div","ov-proj");
-      const pd=projectDot(p);
-      const ph=el("div","ov-proj-head");
-      // V6.4.8: neutrale Projekte bekommen die Workspace-Farbe als Punkt (statt farblos)
-      const dotStyle=pd.cls?"":`style="background:${g.color};border-color:${g.color}"`;
-      ph.innerHTML=`<span class="pdot ${pd.cls}${pd.blink?" blink":""}" ${dotStyle}></span><span class="ov-proj-name">${p.name}</span><span class="ov-proj-meta">${openTasks(p)} offen ›</span>`;
-      ph.onclick=()=>go("project",p.slug);
-      pcard.append(ph);
-      const tks=(p.tasks||[]).filter(t=>!["done","idea"].includes(t.status)).filter(whoMatch)
-        .sort((a,b)=>(a.status==="blocked"?0:a.status==="in_progress"?1:2)-(b.status==="blocked"?0:b.status==="in_progress"?1:2));
-      if(tks.length){const tl=el("div","ov-tasks");
-        tks.slice(0,6).forEach(t=>{const ws=workStatus(t);const tr=el("button","ov-task");
-          // neutrale Tasks: dezenter Workspace-Farbpunkt als Fallback
-          const tDotStyle=ws.cls?"":`style="background:${g.color}99;border-color:${g.color}99"`;
-          tr.innerHTML=`<span class="pdot ${ws.cls}${ws.blink?" blink":""}" ${tDotStyle}></span><span class="ov-task-t">${t.title}</span><span class="ov-task-who">${t.who==="heiner"||t.who==="user"?"🧑":"🦇"}</span>`;
-          tr.onclick=()=>go("task",t.id);tl.append(tr)});
-        if(tks.length>6){const more=el("button","ov-task more");more.textContent=`+${tks.length-6} weitere in ${p.name}`;more.onclick=()=>go("project",p.slug);tl.append(more)}
-        pcard.append(tl);
-      }
-      w.append(pcard);
-    });
+    tops.forEach(n=>w.append(renderOvProj(n,0,g.color)));
   });
 
   w.append(el("div","sec-title","AlphaBatty"));
@@ -1591,7 +1572,7 @@ function renderHome(c){
   sc.append(w);c.append(sc);
   c.append(buildComposer("main",null,thread,sc));
   loadThread("main",thread,null,sc);
-  loadCronInto(w,sum);
+  loadCronInto(w,null);
   // V6.4.6: Archiv ganz unten in der Übersicht (ein-/ausklappbar)
   renderArchiveSection(w);
 }
@@ -1811,16 +1792,24 @@ function renderOverviewPanel(){const o=$("#overview");o.innerHTML="";
       const isTask=n.kind==="task";
       const hasKids=(n.children||[]).length>0;const exp=!!V65.ovExp()[n.id];
       const row=el("div","ovnode"+(isTask?" task":""));row.style.paddingLeft=(8+depth*16)+"px";row.style.setProperty("--sc","var("+st.v+")");
+      const _anc=(V65.path(n.id)||[]).find(a=>a.kind==="workspace");
+      const _wsc=_anc?(WS_COLOR[_anc.wsKey]||"transparent"):(n.kind==="project"?(WS_COLOR[inferWorkspaces(n.raw)[0]]||"transparent"):"transparent");
+      row.style.setProperty("--wsc",_wsc);row.style.setProperty("--depth",depth);
       const tw=hasKids?(exp?"\u25BE":"\u25B8"):(isTask?"":"\u00B7");
       const who=isTask?(V65.assignee(n)==="heiner"?"\u{1F9D1}":"\u{1F987}"):"";
       row.innerHTML=`<span class="tw">${tw}</span><span class="nd"></span><span class="nm">${n.emoji?_v65esc(n.emoji)+" ":""}${_v65esc(n.name)}</span><span class="who">${who}</span>`;
       if(isTask){
-        const t=n.raw;
-        if(V65.isSuggestion&&V65.isSuggestion(t)){const x=el("button","ovx");x.textContent="\u2715";x.title="Ablehnen";x.onclick=e=>{e.stopPropagation();V65.reject(t)};row.append(x);}
-        const pb=el("button","ovplay");pb.innerHTML=IC_PLAY;pb.title="Auto-Play";pb.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(pb);
+        const t=n.raw;const act=V65.actionOf(t);
+        if(act==="done"){row.classList.add("done");}
+        else if(act==="pause"){const pb=el("button","ovplay");pb.innerHTML=IC_PAUSE;pb.title="Stoppen";pb.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(pb);}
+        else if(act==="ok"){const okb=el("button","ovok");okb.textContent="OK";okb.title="Zu Idee entwickeln";okb.onclick=e=>{e.stopPropagation();V65.toIdea(t)};row.append(okb);}
+        else if(act==="suggest"){const x=el("button","ovx");x.textContent="\u2715";x.title="Ablehnen";x.onclick=e=>{e.stopPropagation();V65.reject(t)};row.append(x);const pb=el("button","ovplay");pb.innerHTML=IC_PLAY;pb.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(pb);}
+        else{const pb=el("button","ovplay");pb.innerHTML=IC_PLAY;pb.title="Auto-Play";pb.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(pb);}
         row.onclick=()=>go("task",n.taskId);
       }else{
-        if(hasKids){const c=el("span","cnt");c.textContent=n.children.length;row.append(c);}
+        if(V65.status6(n)==="gruen")row.classList.add("done");
+        if(hasKids){const c=el("span","cnt");c.textContent=n.children.length;row.append(c);
+          const eye=el("button","oveye");eye.innerHTML=exp?IC_EYE:IC_EYE_OFF;eye.title=exp?"Zuklappen":"Aufklappen";eye.onclick=e=>{e.stopPropagation();V65.ovExp()[n.id]=!exp;rerender()};row.append(eye);}
         const op=el("button","ovopen");op.innerHTML='<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';op.title="\u00d6ffnen";op.onclick=e=>{e.stopPropagation();go("node",n.id)};row.append(op);
         row.onclick=()=>{if(hasKids){V65.ovExp()[n.id]=!exp;rerender();}else go("node",n.id);};
       }
@@ -2531,7 +2520,18 @@ V65.counts=function(filt){V65.tree();const c={grau:0,violett:0,blau:0,gelb:0,gru
   Object.values(V65._byId).forEach(n=>{ if(n.kind==="task"&&filt&&!filt(n.raw))return;
     if(n.kind==="project"||n.kind==="task"){const s=V65.status6(n);if(c[s]!=null)c[s]++;}});return c;};
 V65.analysis=function(filt){const c=V65.counts(filt);const tot=Object.values(c).reduce((a,b)=>a+b,0);
-  const lead=c.rot?`Zuerst entblocken: ${c.rot} Raum/Räume blockiert.`:c.gelb?`Der Staat arbeitet — ${c.gelb} aktiv.`:c.blau?`Gut geplant, aber wenig in Bewegung. Zeit zu starten.`:c.violett?`Viele Ideen, wenig konkret. Reif machen.`:tot?`Alles ruhig im Staat.`:`Noch leer — leg den ersten Raum an.`;
+  const done=c.gruen,active=c.gelb,planned=c.blau,ideas=c.violett,blocked=c.rot,unclear=c.grau;
+  const tip=[];
+  if(active)tip.push(`${active} aktiv in Arbeit`);
+  if(planned&&!active)tip.push(`${planned} geplant, aber nichts gestartet — Momentum aufbauen`);
+  if(ideas>Math.max(active+planned,1)*1.5)tip.push(`viele Ideen (${ideas}) vs. Umsetzung — reif machen oder verwerfen`);
+  if(done&&tot)tip.push(`${done} fertig (${Math.round(done/tot*100)}%)`);
+  if(unclear>tot*0.25)tip.push(`${unclear} unklar — sichten & einordnen`);
+  let lead;
+  if(blocked)lead=`Achtung: ${blocked} blockiert — zuerst entkoppeln, sonst staut sich der Rest. ${tip.slice(0,2).join("; ")}.`;
+  else if(active>0&&active>=planned)lead=`Solide Dynamik: ${active} in Arbeit. ${tip.filter(t=>!/aktiv/.test(t)).slice(0,2).join("; ")}.`;
+  else if(tot===0)lead=`Noch leer — leg den ersten Raum an, dann analysiere ich den Staat.`;
+  else lead=`Viel Vorbereitung, wenig Bewegung. ${tip.slice(0,2).join("; ")||"Starte etwas Konkretes"}.`;
   return{c,tot,lead};};
 V65.ovExp=()=>BCC.state.ovExp||(BCC.state.ovExp={});
 V65.assignee=function(node){const t=node&&node.raw;return (t&&(t.who==="heiner"||t.who==="user"))?"heiner":"batty";};
@@ -2625,6 +2625,18 @@ V65.play=async function(t){
   toast("▶ Auto-Play — Batty klärt Ziel & arbeitet.");
 };
 V65.accept=function(t){return V65.play(t);};
+// V6.5.7: einheitliche Aktion je Zustand
+V65.actionOf=function(t){
+  const rs=(typeof taskRunState==="function")?taskRunState(t):null;
+  const running=rs==="run"||t.running||BCC.run[t.id]==="running"||(typeof taskBusy==="function"&&taskBusy(t));
+  const s6=V65.taskStatus6(t);
+  if(s6==="gruen")return"done";
+  if(running)return"pause";
+  if(s6==="grau")return"ok";
+  if(V65.isSuggestion(t))return"suggest"; // 🟣 Idee → play + ablehnen
+  return"play"; // 🔵🟡 → play
+};
+V65.toIdea=async function(t){await mutateTask(t.id,{status:"idea"});toast("→ 🟣 Idee. Jetzt ist Auto-Play möglich.");};
 V65.STATUS6_TO_TASK={grau:"pending",violett:"idea",blau:"waiting",gelb:"in_progress",gruen:"done",rot:"blocked"};
 V65.setColor=async function(node,k){
   BCC.ov.status6=BCC.ov.status6||{};
@@ -2652,10 +2664,23 @@ function renderRoyalBlock(w,whoKey){
   const box=el("div","v65-royal");
   box.innerHTML=`<div class="v65-rl">👑 Tagesanalyse des Königs</div><div class="v65-rt">${_v65esc(a.lead)}</div>`;
   const boxes=el("div","v65-statboxes");
-  V65.STATUS.forEach(s=>{const n=a.c[s.k]||0;const d=el("div","v65-statbox");d.style.setProperty("--sc","var("+s.v+")");
-    d.innerHTML=`<span class="v65-sbdot"></span><span class="v65-sbv">${n}</span><span class="v65-sbk">${s.label}</span>`;
-    d.onclick=()=>{BCC._statFilter=BCC._statFilter===s.k?null:s.k;rerender()};boxes.append(d);});
+  V65.STATUS.forEach(s=>{const n=a.c[s.k]||0;const on=BCC._statFilter===s.k;
+    const d=el("div","v65-statbox"+(on?" on":""));d.style.setProperty("--sc","var("+s.v+")");
+    d.innerHTML=`<span class="v65-sbv">${n}</span><span class="v65-sbk">${s.label} ${on?"\u25B4":"\u25BE"}</span>`;
+    d.onclick=()=>{BCC._statFilter=on?null:s.k;rerender()};boxes.append(d);});
   box.append(boxes);
+  if(BCC._statFilter){const sk=BCC._statFilter,st=V65.ST[sk];
+    V65.tree();
+    const wf=(whoKey&&whoKey!=="all")?whoMatchFn(whoKey):null;
+    const items=Object.values(V65._byId).filter(n=>(n.kind==="project"||n.kind==="task")&&V65.status6(n)===sk&&(!wf||n.kind!=="task"||wf(n.raw)));
+    const list=el("div","v65-statlist");
+    list.append(el("div","v65-sllbl",`${st.emoji} ${st.label} — ${items.length} betroffen`));
+    if(!items.length)list.append(el("div","empty","Nichts in diesem Status."));
+    items.slice(0,50).forEach(n=>{const r=el("div","v65-slrow");r.style.setProperty("--sc","var("+st.v+")");
+      r.innerHTML=`<span class="nd"></span><span class="nm">${n.emoji?_v65esc(n.emoji)+" ":""}${_v65esc(n.name)}</span><span class="kd">${n.kind==="task"?"Task":"Chat"}</span>`;
+      r.onclick=()=>{if(n.kind==="task")go("task",n.taskId);else go("node",n.id)};list.append(r)});
+    box.append(list);
+  }
   const dev=el("button","v65-devbtn","💡 Entwicklungs-Vorschläge machen");
   dev.onclick=()=>{const th=$("#thread");if(th){th.scrollIntoView({behavior:"smooth"});}
     const inp=document.querySelector(".composer textarea,#composerInput,.cmp-input");
@@ -2715,7 +2740,37 @@ function renderRoyalBlock(w,whoKey){
   ".mvsel{flex:0 0 auto;padding:4px 11px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;font:inherit;font-size:12px}"+
   ".mvsel:hover{background:var(--accent);color:var(--on-accent)}"+
   ".mvban{flex:0 0 auto;color:var(--muted);opacity:.5;font-size:11px;padding:0 8px}"+
-  ".mvhint{margin:0 18px 8px;font-size:12px;color:var(--muted);line-height:1.4}";
+  ".mvhint{margin:0 18px 8px;font-size:12px;color:var(--muted);line-height:1.4}"+
+  ".trow.done,.ovnode.done{opacity:.5}"+
+  ".trow.done .tt,.trow.done .tt *,.ovnode.done .nm{text-decoration:line-through}"+
+  ".okpill{display:inline-flex;align-items:center;padding:5px 13px;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--ink);font:inherit;font-weight:700;font-size:12px;cursor:pointer}"+
+  ".okpill:hover{border-color:var(--v65-violett);color:var(--v65-violett)}"+
+  ".ovok{flex:0 0 auto;height:30px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-weight:700;font-size:12px;cursor:pointer;margin-left:6px}"+
+  ".ovok:hover{border-color:var(--v65-violett);color:var(--v65-violett)}"+
+  ".pausepill svg{fill:currentColor}"+
+  ".v65-statbox{cursor:pointer}.v65-statbox.on{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--sc)}"+
+  ".v65-statlist{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}"+
+  ".v65-sllbl{font:600 11px/1 var(--mono);letter-spacing:.3px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}"+
+  ".v65-slrow{display:flex;align-items:center;gap:9px;padding:8px 10px;border-left:3px solid var(--sc);border-radius:8px;cursor:pointer;background:var(--bg-2);margin-bottom:5px}"+
+  ".v65-slrow:hover{background:var(--accent-soft)}"+
+  ".v65-slrow .nd{width:8px;height:8px;border-radius:99px;background:var(--sc);flex:0 0 auto}"+
+  ".v65-slrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px}"+
+  ".v65-slrow .kd{font-size:10px;color:var(--muted);text-transform:uppercase}"+
+  ".ovnode{border-left:3px solid var(--wsc,transparent)}"+
+  ".ovc{border:1px solid var(--line);border-left:4px solid var(--wsc,var(--line));border-radius:12px;background:var(--panel);margin:8px 0;overflow:hidden}"+
+  ".ovc.done{opacity:.5}.ovc.done>.ovc-head .ovc-name{text-decoration:line-through}"+
+  ".ovc-head{display:flex;align-items:center;gap:10px;padding:12px 13px}"+
+  ".ovc-head .pdot{cursor:pointer;flex:0 0 auto}"+
+  ".ovc-name{font-weight:600;font-size:15px;cursor:pointer;flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"+
+  ".ovc-embed{font-size:11px;color:var(--muted);white-space:nowrap}"+
+  ".ovc-meta{margin-left:auto;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}"+
+  ".ov-eye{flex:0 0 auto;width:36px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--muted);cursor:pointer;margin-left:6px}"+
+  ".ov-eye svg{width:18px;height:18px}.ov-eye:hover{color:var(--ink);border-color:var(--accent)}"+
+  ".ovc-body{padding:0 10px 8px 12px}.ovc-body>.ovc{margin-left:8px}"+
+  ".ovc-more{display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;color:var(--muted);cursor:pointer;font:inherit;font-size:13px}"+
+  ".pdot.grey{background:var(--muted)}"+
+  ".oveye{flex:0 0 auto;width:30px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--muted);cursor:pointer;margin-left:4px}"+
+  ".oveye svg{width:15px;height:15px}.oveye:hover{color:var(--ink);border-color:var(--accent)}";
   document.head.appendChild(s);})();
 
 function renderNode(c){
