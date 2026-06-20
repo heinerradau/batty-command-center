@@ -26,7 +26,8 @@
   --accent:#ececef; --on-accent:#1a1b1f; --accent-soft:#ffffff12; --shadow:0 1px 0 #ffffff08;
   --red:#d05c54; --red-soft:#d05c5422;
   --s-today:#d05c54; --s-progress:#4caf50; --s-waiting:#e6a817; --s-blocked:#d05c54;
-  --s-done:#7a7b83; --s-pending:#8a8b93; --s-idea:#9a87c6; }
+  --s-done:#7a7b83; --s-pending:#8a8b93; --s-idea:#9a87c6;
+  --v65-grau:#8a8b93; --v65-violett:#9a87c6; --v65-blau:#5b9bd5; --v65-gelb:#e6a817; --v65-gruen:#4caf50; --v65-rot:#d05c54; }
 :root[data-theme="light"]{ color-scheme:light;
   --bg:#f7f7f5; --bg-2:#f1f1ef; --panel:#ffffff; --panel-2:#f3f3f1; --line:#e4e4e0;
   --ink:#1d1e22; --ink-dim:#4a4b52; --muted:#86868d; --muted-2:#aeaeb4;
@@ -73,6 +74,10 @@ svg{stroke-linecap:round;stroke-linejoin:round}
 .side{width:var(--side);flex:0 0 var(--side);border-right:1px solid var(--line);background:var(--bg-2);display:flex;flex-direction:column;min-height:0}
 .center{min-width:0;display:flex;flex-direction:column;min-height:0;flex:1}
 #overview{width:var(--ovw);flex:0 0 var(--ovw);border-left:1px solid var(--line);background:var(--bg-2);display:flex;flex-direction:column;min-height:0}
+#ovResize{position:fixed;top:0;bottom:0;right:var(--ovw);width:9px;transform:translateX(4px);cursor:col-resize;z-index:40}
+#ovResize:hover,#ovResize.drag{background:linear-gradient(90deg,transparent,var(--accent-soft),transparent)}
+body.ovw-hidden #ovResize{display:none}
+@media(max-width:900px){#ovResize{display:none}}
 
 /* sidebar */
 .side-top{padding:11px;display:flex;flex-direction:column;gap:7px;border-bottom:1px solid var(--line)}
@@ -118,8 +123,8 @@ svg{stroke-linecap:round;stroke-linejoin:round}
 @media(min-width:860px){ .menu-btn,.ovw-mobile{display:none} .scrim{display:none} }
 
 /* center */
-.cscroll{flex:1;overflow-y:auto;padding:16px}
-.cscroll .wrap{max-width:760px;margin:0 auto}
+.cscroll{flex:1;overflow-y:auto;padding:0 16px 16px}
+.cscroll .wrap{max-width:760px;margin:0 auto;padding-top:16px}
 .chead{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line)}
 .chead .back{display:none} @media(max-width:859px){.chead .back{display:grid}}
 .chead .ttl{font-weight:700;font-size:16px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -209,6 +214,8 @@ h1.vt{font-size:23px;letter-spacing:-.3px;margin:2px 0 16px;font-weight:750}
 .tk.run .play:hover .sym::before{content:"⏹"}.tk.queued .play:hover .sym::before{content:"▶"}
 .tk:not(.run):not(.queued):not(.blocked) .play:hover .sym::before{content:"▶"}
 @keyframes blinkdot{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes queueblink{0%,100%{background:var(--v65-blau);border-color:var(--v65-blau)}50%{background:var(--p-yellow);border-color:var(--p-yellow)}}
+.pdot.queued,.trow .pdot.queued,.stask .pdot.queued,.dot.queued,.hdot.queued{animation:queueblink 1.1s infinite}
 .tk .body{flex:1;min-width:0}.tk .tt{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tk.done .tt{text-decoration:line-through;color:var(--muted)}
 .tk .meta{display:flex;gap:8px;align-items:center;margin-top:3px}
@@ -333,7 +340,7 @@ h1.vt{font-size:23px;letter-spacing:-.3px;margin:2px 0 16px;font-weight:750}
 .cal-chip .cx{margin-left:auto;opacity:.5;font-size:11px;cursor:pointer;flex:0 0 auto}
 .cal-chip[draggable=true]{cursor:grab}
 /* V6.4.9: Kalender sticky oben */
-.cal-sticky{position:sticky;top:0;z-index:20;background:var(--bg);padding-top:4px;margin:0 -2px 8px}
+.cal-sticky{position:sticky;top:0;z-index:20;background:var(--bg);padding-top:0;margin:0 -2px 8px}
 .cal-sticky.open{box-shadow:0 6px 14px -8px rgba(0,0,0,.25);border-bottom:1px solid var(--line)}
 /* aufklappbare Statusboxen */
 .dcard.expanded{outline:2px solid var(--accent);background:var(--accent-soft)}
@@ -548,20 +555,19 @@ h1.vt{font-size:23px;letter-spacing:-.3px;margin:2px 0 16px;font-weight:750}
   <div class="body">
     <aside class="side" id="side">
       <div class="side-top">
-        <button class="btn-sec" id="newChat"><svg viewBox="0 0 24 24"><path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-5.4A8 8 0 1 1 21 11.5Z"/></svg>Neuer Chat</button>
         <button class="btn-sec" id="navHome"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v9h5v-6h4v6h5v-9"/></svg>Übersicht</button>
         <button class="btn-sec" id="navDash"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V3h-8zM3 21h8v-6H3z"/></svg>Marketing Dashboard</button>
         <div class="searchbox"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="sideSearch" placeholder="Projekte, Tasks & Chats suchen…" autocomplete="off"><button class="sx" id="sideSearchX" hidden>×</button></div>
         <div class="filters">
           <div class="selrow">
             <select class="sel" id="cityFilter"><option value="">Städte</option></select>
-            <select class="sel" id="wsFilter"><option value="">Workspace</option><option value="marketing">Marketing</option><option value="vertrieb">Vertrieb</option><option value="dev">Dev</option><option value="system">System</option></select>
           </div>
         </div>
       </div>
       <div class="side-scroll" id="sideScroll"></div>
     </aside>
     <main class="center" id="center"></main>
+    <div id="ovResize" title="Breite ziehen"></div>
     <aside id="overview"></aside>
   </div>
   <div class="scrim" id="scrim"></div>
@@ -575,8 +581,16 @@ h1.vt{font-size:23px;letter-spacing:-.3px;margin:2px 0 16px;font-weight:750}
    Single-File. Mock + KV-Fallback solange BCC.config-Endpoints null sind.
    ============================================================================ */
 const BCC={};
-BCC.VERSION="6.4.9";
+BCC.VERSION="6.5.6";
 BCC.CHANGELOG=[
+  {v:"6.5.6",notes:["Verschieben ist jetzt ein aufklappbarer BAUM — vorab geöffnet bis zur aktuellen Position; Klick auf Ordner öffnet Unterordner, „Hierher\" verschiebt samt Unterbau","Rechte Leiste: Ordner klappen auf Klick NESTED auf (statt zu navigieren); kleines ›-Icon öffnet den Raum","Großes schwarzes ▶ PLAY in der rechten Leiste; Vorschläge mit ▶/✕","PLAY nie mehr blockiert: fehlt das Ziel, leitet Batty es aus dem Titel ab (kein „Ziel fehlt\" mehr)","Agentische Loop-Struktur dokumentiert (AGENTIC-LOOP.md) für AlphaBatty"]},
+  {v:"6.5.5",notes:["Rechtsklick-Menü vereinheitlicht: 6 Farben, Löschen (.trash), Kalender ausklappbar, Inline-Umbenennen, nur noch Verschieben"]},
+  {v:"6.5.4",notes:["Kalender flush sticky; Timeout blinkt rot; Queue blinkt blau/gelb"]},
+  {v:"6.5.3",notes:["Rechte Leiste ziehbar; Heiner/Batty-Filter oben über den Boxen"]},
+  {v:"6.5.2",notes:["„+\" = sofort leerer Chat; Vorschläge nur ▶/✕; Emoji per Rechtsklick-Menü"]},
+  {v:"6.5.1",notes:["Scroll-Bug behoben; Chat normal nach unten; Logo→Home, Version→Fenster; Workspace-Filter entfernt"]},
+  {v:"6.5.0",notes:["Phase 2/3/4: rechte Leiste als Ordnerbaum, königliche Tagesanalyse + 6 Status-Boxen, Zuweisung Batty/Heiner, Verschieben, Status-Evolution"]},
+  {v:"6.5.0-alpha",notes:["Einheitlicher Knoten-Baum + 6-Status-System + rekursiver Raum-Browser (Fundament)"]},
   {v:"6.4.9",notes:["Chats steigen nur durch Schreiben/Arbeiten auf — nicht mehr beim bloßen Anschauen","Scroll-Sprung nach oben behoben (auch bei parallel laufender Arbeit / rot blinkenden Tasks)","Kalender-Task-Titel sprengen den Rahmen nicht mehr","Kalender oben sticky beim Scrollen (weiter ausblendbar)","Statusboxen aufklappbar → Tasks darunter, per Drag in den Kalender ziehbar"]},
   {v:"6.4.8",notes:["Farb-Punkte in der Übersicht","Alle Chats in der Seitenleiste","Dashboard zählt als Marketing-Ebene","Task-Wunsch im Chat landet in BCC"]},
   {v:"6.4.7",notes:["AlphaBatty: Fehler-Log landet als Task im BCC-Debugging-Projekt","Projekt-Chats werden im KV persistiert","BATTY-PROTECT-Marker schützt Dateien vor Auto-Edit","strukturiertes Logging (bcc_log)"]},
@@ -599,7 +613,7 @@ BCC.config={chatEndpoint:null,chatResultEndpoint:null,chatFilesEndpoint:null,aud
   projectsEndpoint:null,projectCreateEndpoint:null,taskMutateEndpoint:null,projectMutateEndpoint:null,
   taskMoveEndpoint:null,taskPlayEndpoint:null,taskStopEndpoint:null,projectPlayEndpoint:null,projectStopEndpoint:null,kvEndpoint:null,
   systemHealthEndpoint:null,refreshEndpoint:null,logErrorEndpoint:null,taskCreateEndpoint:null,errorsEndpoint:null,
-  projectMergeEndpoint:null,cronListEndpoint:null,cronSaveEndpoint:null,cronDeleteEndpoint:null,
+  projectMergeEndpoint:null,projectDeleteEndpoint:null,cronListEndpoint:null,cronSaveEndpoint:null,cronDeleteEndpoint:null,
   projectFilesEndpoint:null,projectFileBase:null,dashboardUrl:null,
   chatTimeoutMs:180000,pollMs:30000};
 BCC.goLive=(base="/setup-api")=>{Object.assign(BCC.config,{
@@ -610,7 +624,7 @@ BCC.goLive=(base="/setup-api")=>{Object.assign(BCC.config,{
   projectPlayEndpoint:base+"/project-play",projectStopEndpoint:base+"/project-stop",kvEndpoint:base+"/kv",
   systemHealthEndpoint:base+"/system-health",refreshEndpoint:base+"/refresh",logErrorEndpoint:base+"/log-error",
   taskCreateEndpoint:base+"/task-create",errorsEndpoint:base+"/errors",
-  projectMergeEndpoint:base+"/project-merge",cronListEndpoint:base+"/cron",cronSaveEndpoint:base+"/cron-save",cronDeleteEndpoint:base+"/cron-delete",
+  projectMergeEndpoint:base+"/project-merge",projectDeleteEndpoint:base+"/project-delete",cronListEndpoint:base+"/cron",cronSaveEndpoint:base+"/cron-save",cronDeleteEndpoint:base+"/cron-delete",
   projectFilesEndpoint:base+"/project-files",projectFileBase:base,dashboardUrl:"/marketing-dashboard.html"})};
 
 // V6.3.5: 8 Workspaces (erweitert nach Heiners Workspace-Review)
@@ -759,10 +773,11 @@ BCC.api={
     const r=await fetch(BCC.config.audioEndpoint,{method:"POST",body:fd});const j=await r.json();
     if(j.reply!=null)return{reply:j.reply,mock:false};if(j.msgId&&BCC.config.chatResultEndpoint){const x=await BCC._poll(j.msgId);return{reply:x.reply,mock:false}}return{reply:j.error||"Keine Antwort.",mock:false}}
     return{reply:"🎤 Audio empfangen (Mock).",mock:true}},
-  async createProject(name,vision,prio,workspaces,city,tags){if(BCC.config.projectCreateEndpoint){
-    const r=await fetch(BCC.config.projectCreateEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,vision,prio,workspaces,city,tags})});return await r.json()}
+  async createProject(name,vision,prio,workspaces,city,tags,parentFolder){if(BCC.config.projectCreateEndpoint){
+    const r=await fetch(BCC.config.projectCreateEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,vision,prio,workspaces,city,tags,parentFolder:parentFolder||null})});return await r.json()}
     const slug=(name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"projekt")+"-"+Math.random().toString(36).slice(2,6);
     const p={slug,name,prio:prio||null,workspaces:workspaces||[],city:city||null,tags:tags||[],updatedAt:NOW,statusLabel:"Neu",done:false,md:{vision:"# Vision\n"+(vision||""),status:"**Aktueller Stand:** Neu angelegt."},tasks:[]};BCC.seed.unshift(p);return p},
+  async deleteProject(slug){if(BCC.config.projectDeleteEndpoint){const r=await fetch(BCC.config.projectDeleteEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug})});return await r.json()}return{ok:true,mock:true}},
   async taskPlay(id){if(BCC.config.taskPlayEndpoint){const r=await fetch(BCC.config.taskPlayEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});return await r.json()}
     await new Promise(r=>setTimeout(r,1400));return{reply:"▶ (Mock) Task bearbeitet. Live läuft hier der echte Agent-Loop bis fertig oder bis er dich braucht.",mock:true}},
   taskStop:async id=>{if(BCC.config.taskStopEndpoint)try{await fetch(BCC.config.taskStopEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})})}catch(e){}},
@@ -811,7 +826,7 @@ BCC.md=(src="")=>{const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").repl
   return h};
 
 /* ---------------- STATE + HELPERS ---------------- */
-BCC.state={projects:[],route:"overview",slug:null,taskId:null,sort:"recent",city:"",ws:"",showArchived:false};
+BCC.state={projects:[],route:"overview",slug:null,taskId:null,nodeId:"root",sort:"recent",city:"",ws:"",showArchived:false};
 BCC.run={}; // taskId -> 'queued'|'running'|'blocked'
 // V6.4.1: „zuletzt von mir berührt" pro Session — überlebt Reload (localStorage).
 // Treibt: (a) Sofort-Gelb beim Senden, (b) Sidebar-Aktualität (neueste oben).
@@ -826,11 +841,26 @@ function touchSession(sessionId,slug){
   try{localStorage.setItem("bcc:touch",JSON.stringify(BCC._touch))}catch(_){}
 }
 function setBusy(sessionId,slug,on){
-  if(on){BCC._chatBusy[sessionId]=Date.now();if(slug)BCC._chatBusy["proj-"+slug]=Date.now();
-    if(sessionId==="dashboard")BCC._chatBusy["ws-marketing"]=Date.now();}
-  else{delete BCC._chatBusy[sessionId];if(slug)delete BCC._chatBusy["proj-"+slug];
-    if(sessionId==="dashboard")delete BCC._chatBusy["ws-marketing"];}
+  BCC._busyStart=BCC._busyStart||{};
+  if(on){const now=Date.now();BCC._chatBusy[sessionId]=now;BCC._busyStart[sessionId]=now;
+    if(slug){BCC._chatBusy["proj-"+slug]=now;BCC._busyStart["proj-"+slug]=now;}
+    if(sessionId==="dashboard"){BCC._chatBusy["ws-marketing"]=now;BCC._busyStart["ws-marketing"]=now;}
+    startBusyWatch();}
+  else{delete BCC._chatBusy[sessionId];delete BCC._busyStart[sessionId];
+    if(slug){delete BCC._chatBusy["proj-"+slug];delete BCC._busyStart["proj-"+slug];}
+    if(sessionId==="dashboard"){delete BCC._chatBusy["ws-marketing"];delete BCC._busyStart["ws-marketing"];}}
 }
+// V6.5.4: Wenn eine Antwort ausbleibt (Timeout), darf der Task NICHT still grau werden —
+// er soll rot blinken. Dafür merken wir den Busy-Start separat (überlebt das BUSY_TTL).
+function timedOut(key){const bs=BCC._busyStart&&BCC._busyStart[key];return !!bs&&(Date.now()-bs>((BCC.config.chatTimeoutMs||180000)));}
+function startBusyWatch(){if(BCC._busyWatch)return;
+  BCC._busyWatch=setInterval(()=>{
+    const keys=Object.keys(BCC._busyStart||{});
+    if(!keys.length){clearInterval(BCC._busyWatch);BCC._busyWatch=null;return;}
+    // sobald irgendwas in den Timeout läuft, neu zeichnen, damit Rot erscheint
+    if(keys.some(k=>timedOut(k))){renderSidebar();renderOverviewPanel();
+      if(["overview","project","task","node"].includes(BCC.state.route))rerenderSoft();}
+  },20000);}
 // V6.4.2: Busy verfällt nach 3 Min — falls ein Turn abbricht (Timeout/Disconnect),
 // bleibt ein Task NIE ewig auf „arbeitet" hängen.
 const BUSY_TTL=180000;
@@ -959,7 +989,6 @@ function collectChats(hiddenWs){
 }
 function renderSidebar(){
   const cf=$("#cityFilter");cf.innerHTML='<option value="">Städte</option>'+cities().map(c=>`<option value="${c}">${c.toUpperCase()}</option>`).join("");cf.value=BCC.state.city;
-  $("#wsFilter").value=BCC.state.ws;
   const q=(BCC.state.q||"").trim().toLowerCase();
   // V6.4.4/6.4.8: ausgeblendete Workspaces früh laden — werden überall in dieser Funktion gebraucht
   try{BCC._hiddenWs=JSON.parse(localStorage.getItem("bcc:hiddenWs")||"{}")}catch(_){BCC._hiddenWs=BCC._hiddenWs||{}}
@@ -1082,6 +1111,7 @@ function renderCenter(){const c=$("#center");c.innerHTML="";
   if(r==="dashboard")return renderDashboard(c);
   if(r==="filter")return renderFilter(c);
   if(r==="workspace")return renderWorkspace(c);
+  if(r==="node")return renderNode(c);
   return renderHome(c);
 }
 
@@ -1169,7 +1199,7 @@ function renderWorkspace(c){const key=BCC.state.wsKey;const meta=WS_DEF.find(w=>
   const wsActive=projs0.some(p=>projectActive(p));
   const wsAllDone=projs0.length&&projs0.every(p=>p.done||(p.tasks||[]).every(t=>t.status==="done"));
   const wsDot=wsBlocked?"red":wsActive?"yellow":wsAllDone?"green":"";
-  c.append(chead(wsTitle+" — Workspace",{dotClass:wsDot,dotBlink:wsBlocked||wsActive,refresh:()=>doRefresh({level:"workspace",wsKey:key}),crumb:[{label:"Übersicht",go:()=>go("overview")}],menu:key!=="_none"&&key!==LOST}));
+  c.append(chead(wsTitle+" — Workspace",{dotClass:wsDot,dotBlink:wsBlocked||wsActive,refresh:()=>doRefresh({level:"workspace",wsKey:key}),crumb:[{label:"👑 Übersicht",go:()=>go("overview")}],plus:()=>V65.newChat(V65.node("ws:"+key)),menu:key!=="_none"&&key!==LOST}));
   if(key!=="_none"&&key!==LOST){const mb=$("#cMenu");if(mb)mb.onclick=()=>openWorkspaceEditMenu(key)}
   const sc=el("div","cscroll");const w=el("div","wrap");
   // Suche (immer auf Workspace-Startseite)
@@ -1209,6 +1239,9 @@ function subInfo(p,t){const subs=(p.tasks||[]).filter(x=>x.parentTaskId===t.id);
 function workStatus(t){
   const rs=taskRunState(t);
   const reallyRunning=(rs==="run")||t.running||BCC.run[t.id]==="running"||taskBusy(t);
+  // V6.5.4: Timeout → ROT BLINKEND (nicht still grau werden)
+  if(timedOut("task-"+t.id)&&t.status!=="done"&&t.status!=="blocked")
+    return{cls:"red",label:"⚠️ hängt — keine Antwort (Timeout)",blink:true};
   // V6.4.1: SOFORT gelb, sobald ich geschrieben habe (Antwort steht aus)
   if(taskBusy(t))return{cls:"yellow",label:"du hast geschrieben …",blink:true};
   if(t.status==="done"){
@@ -1217,7 +1250,7 @@ function workStatus(t){
   }
   // V6.4.2: „arbeitet …" (gelb BLINKEND) NUR bei echtem laufendem Prozess.
   if(reallyRunning)return{cls:"yellow",label:"arbeitet …",blink:true};
-  if(rs==="queued")return{cls:"yellow",label:"queued",blink:true};
+  if(rs==="queued")return{cls:"queued",label:"in der Queue …",blink:false};
   // in_progress-MARKER ([~] in TASKS.md) OHNE laufenden Prozess = „angefangen", GELB STATISCH (kein Blinken,
   // damit man nicht denkt, da läuft gerade was). Das war der Bug: Tasks hingen ewig auf „arbeitet".
   if(t.status==="in_progress")return{cls:"yellow",label:"angefangen",blink:false};
@@ -1248,10 +1281,15 @@ function taskRow(t,p,opts={}){
   row.oncontextmenu=e=>{e.preventDefault();go("task",t.id)};
   row.append(dot,mid);
   const rs=taskRunState(t);
-  // Play-Pille nur wenn sinnvoll; im Kompakt-Panel (opts.compact) NUR bei laufendem/lauffähigem Task — kein „Beschreiben"
-  if(rs==="run"){const a=el("button","playpill");a.innerHTML=IC_STOP+"Stop";a.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(a)}
+  // V6.5.2: Vorschlag (Idee/unklar) → nur ▶ annehmen / ✕ ablehnen. Sonst normale Play-Logik.
+  if(V65.isSuggestion&&V65.isSuggestion(t)){
+    const acc=el("button","sugbtn play");acc.innerHTML=IC_PLAY;acc.title="Annehmen — wird ein Task mit Prio-Farbe";acc.onclick=e=>{e.stopPropagation();V65.accept(t)};
+    const rej=el("button","sugbtn x");rej.textContent="✕";rej.title="Ablehnen — verwerfen";rej.onclick=e=>{e.stopPropagation();V65.reject(t)};
+    row.append(acc,rej);
+  }
+  else if(rs==="run"){const a=el("button","playpill");a.innerHTML=IC_STOP+"Stop";a.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(a)}
   else if(playable(t)&&t.status!=="done"){const a=el("button","playpill");a.title="▶️ "+t.vision;a.innerHTML=IC_PLAY+(rs==="queued"?"queued":t.status==="blocked"?"erneut":"Play");a.onclick=e=>{e.stopPropagation();confirmPlay(t)};row.append(a)}
-  else if(!opts.compact&&!playable(t)&&t.status!=="done"){const a=el("button","playpill describe");a.innerHTML=IC_PEN+"Beschreiben";a.onclick=e=>{e.stopPropagation();openDescribe(t.id)};row.append(a)}
+  else if(!opts.compact&&t.status!=="done"){const a=el("button","playpill");a.innerHTML=IC_PLAY+"Play";a.title="Auto-Play — Ziel wird aus dem Titel abgeleitet";a.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(a)}
   const menu=el("button","tmenu","⋯");menu.onclick=e=>{e.stopPropagation();openTaskMenu(t.id)};
   row.append(menu);return row;
 }
@@ -1283,14 +1321,26 @@ function chead(title,opts={}){
   if(opts.dotClass){inner+=`<span class="hdot ${opts.dotClass}${opts.dotBlink?" blink":""}" title="${opts.dotTitle||""}"></span>`}
   else if(opts.dot){inner+=`<span class="hdot ${opts.dot}"></span>`}
   inner+=`<span class="ttl">${title}</span>`;
+  if(opts.editTitle)inner+=`<button class="ic ctitleedit" id="cTitleEdit" aria-label="Umbenennen" title="Umbenennen"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg></button>`;
   (opts.badges||[]).forEach(b=>inner+=`<span class="badge ${b.cls||""}"${b.color?` style="color:${b.color};border-color:${b.color}"`:""}>${b.label}</span>`);
   if(opts.play)inner+=`<button class="playpill" id="cPlay">${opts.playRunning?IC_STOP+"Stop":IC_PLAY+"Alle"}</button>`;
+  if(opts.plus)inner+=`<button class="ic cplus" id="cPlus" aria-label="Neuer Chat in dieser Ebene" title="Neuer Chat hier"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>`;
   if(opts.refresh)inner+=`<button class="ic" id="cRefresh" aria-label="Aktualisieren"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-.6 4M20 5v6h-6"/></svg></button>`;
   if(opts.menu)inner+=`<button class="ic" id="cMenu" aria-label="Optionen"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"/></svg></button>`;
   h.innerHTML=inner;h.querySelector(".back").onclick=()=>go(opts.back||"overview");
   if(opts.play)h.querySelector("#cPlay").onclick=opts.play;
+  if(opts.plus)h.querySelector("#cPlus").onclick=opts.plus;
   if(opts.refresh)h.querySelector("#cRefresh").onclick=opts.refresh;
   if(opts.menu)h.querySelector("#cMenu").onclick=opts.menu;
+  if(opts.editTitle){const eb=h.querySelector("#cTitleEdit");if(eb)eb.onclick=()=>{
+    const ttl=h.querySelector(".ttl");if(!ttl)return;const old=ttl.textContent;
+    const inp=el("input","ctitleinput");inp.value=old;ttl.replaceWith(inp);inp.focus();inp.select();
+    eb.innerHTML='<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';eb.title="Speichern";
+    const save=()=>{const v=inp.value.trim();if(v&&v!==old)opts.editTitle(v);else rerender()};
+    eb.onclick=save;
+    inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();save()}else if(e.key==="Escape")rerender()};
+    inp.onblur=()=>setTimeout(save,120);
+  };}
   wrap.append(h);return wrap}
 async function doRefresh(scope){
   // V6.3.5: ebenen-bewusst. scope kann String (slug, alt) ODER {level,slug,taskId,wsKey} sein.
@@ -1436,8 +1486,19 @@ function renderArchiveSection(w){
   w.append(cards);
 }
 function renderHome(c){
-  c.append(chead("Übersicht",{refresh:()=>doRefresh({level:"all"})}));
+  c.append(chead("👑 Übersicht",{refresh:()=>doRefresh({level:"all"}),plus:()=>V65.newChat(V65.node("root"))}));
   const sc=el("div","cscroll");const w=el("div","wrap");
+  const who=BCC.state.ovWho||"all";
+  const whoMatch=whoMatchFn(who);
+  renderRoyalBlock(w,who);
+  // V6.5.3: Heiner/Batty-Filter GANZ OBEN — wirkt auf Analyse, Boxen und Listen
+  const whoBar=el("div","whobar");
+  whoBar.innerHTML=`<span class="whlbl">Filtern nach:</span>`+
+    `<button data-w="all" aria-pressed="${who==="all"}">Alle</button>`+
+    `<button data-w="heiner" aria-pressed="${who==="heiner"}">🧑 Heiner</button>`+
+    `<button data-w="batty" aria-pressed="${who==="batty"}">🦇 Batty</button>`;
+  whoBar.querySelectorAll("button").forEach(b=>b.onclick=()=>{BCC.state.ovWho=b.dataset.w;rerender()});
+  w.append(whoBar);
   // V6.4.9: Kalender oben STICKY (bleibt beim Scrollen sichtbar, damit man Tasks reinziehen kann)
   const calStick=el("div","cal-sticky"+(BCC._calOpen?" open":""));
   const calbar=el("div","calbar");
@@ -1448,9 +1509,10 @@ function renderHome(c){
   calbar.querySelector("#calToggle").onclick=()=>{BCC._calOpen=!BCC._calOpen;rerender()};
   calbar.querySelector("#calFull").onclick=()=>go("calendar");
 
-  const openP=BCC.state.projects.filter(p=>!p.done&&!p.archived);
-  const openT=BCC.state.projects.reduce((n,p)=>n+openTasks(p),0);
-  const redT=BCC.state.projects.flatMap(p=>p.tasks||[]).filter(t=>t.status==="today"||t.prio==="red"||t.status==="blocked").length;
+  const matchOpen=p=>(p.tasks||[]).some(t=>whoMatch(t)&&!["done","idea"].includes(t.status));
+  const openP=BCC.state.projects.filter(p=>!p.done&&!p.archived&&(who==="all"||matchOpen(p)));
+  const openT=BCC.state.projects.flatMap(p=>p.tasks||[]).filter(t=>whoMatch(t)&&!["done","idea"].includes(t.status)).length;
+  const redT=BCC.state.projects.flatMap(p=>p.tasks||[]).filter(t=>whoMatch(t)&&(t.status==="today"||t.prio==="red"||t.status==="blocked")).length;
   const sum=el("p","ovsum");
   sum.innerHTML=`<b>${openP.length} aktive Projekte</b>, <b>${openT} offene Tasks</b>${redT?`, davon <b style="color:var(--red)">${redT} dringend</b>`:""}.`;
   w.append(sum);
@@ -1482,17 +1544,6 @@ function renderHome(c){
   // V6.4.4: Tägliche Spend & Leads-Kurve aus dem Marketing-Dashboard (falls Daten vorhanden)
   const chartHost=el("div");chartHost.id="ovSpendLeads";w.append(chartHost);
   loadSpendLeadsChart(chartHost);
-
-  // V6.4.4: Heiner/Batty-Filter
-  const whoBar=el("div","whobar");
-  const who=BCC.state.ovWho||"all";
-  whoBar.innerHTML=`<span class="whlbl">Aufgaben von:</span>
-    <button data-w="all" aria-pressed="${who==="all"}">Alle</button>
-    <button data-w="heiner" aria-pressed="${who==="heiner"}">🧑 Heiner</button>
-    <button data-w="batty" aria-pressed="${who==="batty"}">🦇 Batty</button>`;
-  w.append(whoBar);
-  whoBar.querySelectorAll("button").forEach(b=>b.onclick=()=>{BCC.state.ovWho=b.dataset.w;rerender()});
-  const whoMatch=t=>who==="all"||(who==="heiner"?(t.who==="heiner"||t.who==="user"):(t.who!=="heiner"&&t.who!=="user"));
 
   // V6.4.6: +Projekt / +Workspace gehören in die Übersicht (nicht in die Seitenleiste)
   const acts=el("div","ov-actions");
@@ -1650,8 +1701,11 @@ function renderProject(c){const p=projectBySlug(BCC.state.slug);
   const pDotClass=anyBlocked?"red":running?"yellow":(p.done||allDone)?"green":"";
   const pDotBlink=anyBlocked||running;
   const pDotTitle=anyBlocked?"Braucht Aufmerksamkeit":running?"Arbeitet …":(allDone?"Fertig":"Offen");
+  V65.tree&&V65.tree();
+  const _pcrumb=(V65.path?V65.path("proj:"+p.slug).slice(0,-1):[]).map(a=>({label:(a.emoji?a.emoji+" ":"")+a.name,go:()=>a.id==="root"?go("overview"):a.id.indexOf("ws:")===0?go("workspace",a.wsKey):go("node",a.id)}));
   c.append(chead(p.name,{dotClass:pDotClass,dotBlink:pDotBlink,dotTitle:pDotTitle,badges,playRunning:running,play:(running||anyPlay)?()=>togglePlayProject(p.slug):null,refresh:()=>doRefresh({level:"project",slug:p.slug}),menu:()=>openProjectMenu(p.slug),
-    crumb:[{label:WS_LABEL[wsKey0]||"Übersicht",go:()=>wsKey0?go("workspace",wsKey0):go("overview")}]}));
+    plus:()=>V65.newChat(V65.node("proj:"+p.slug)),editTitle:(v)=>patchProject(p.slug,{name:v}),
+    crumb:_pcrumb.length?_pcrumb:[{label:WS_LABEL[wsKey0]||"👑 Übersicht",go:()=>wsKey0?go("workspace",wsKey0):go("overview")}]}));
   const sc=el("div","cscroll");const w=el("div","wrap");
   const sum=el("div","summary");
   sum.innerHTML=`<div class="cap">Letzter Stand <span class="chev">▾</span></div>
@@ -1684,6 +1738,7 @@ function renderTaskChat(c){const{p,t}=findTask(BCC.state.taskId);
   const rs=taskRunState(t);const ws=workStatus(t);
   c.append(chead(t.title,{back:"project",dotClass:ws.cls,dotBlink:ws.blink,dotTitle:ws.label,badges:[{label:p.name,cls:"ws"}],playRunning:rs==="run",
     play:playable(t)?()=>togglePlay(t):null,refresh:()=>doRefresh({level:"task",taskId:t.id,slug:p.slug}),menu:()=>openTaskMenu(t.id),
+    plus:()=>openNewTask(p.slug,t.id),editTitle:(v)=>mutateTask(t.id,{title:v}),
     crumb:[{label:p.name,go:()=>go("project",p.slug)}]}));
   c.querySelector(".chead .back").onclick=()=>go("project",p.slug);
   const sc=el("div","cscroll");const w=el("div","wrap");
@@ -1715,6 +1770,20 @@ function renderTaskChat(c){const{p,t}=findTask(BCC.state.taskId);
     else{tsum.querySelector("#curState").style.display="none"}});
   if(si.total){const sl=el("div");si.subs.forEach(s=>{const r=el("div","subline"+(s.status==="done"?" done":""));r.innerHTML=`<span class="sd"></span><span>${s.title}</span>`;r.onclick=()=>go("task",s.id);sl.append(r)});tsum.append(sl)}
   w.append(tsum);
+  // V6.5.0: Zuweisung Batty/Heiner → Auto-Play vs. Kalender
+  (function(){const isHeiner=t.who==="heiner"||t.who==="user";
+    const bar=el("div","v65-assign");
+    bar.innerHTML=`<span class="ov-layer" style="margin:0">Zuständig</span>`+
+      `<span class="seg"><button data-w="batty" aria-pressed="${!isHeiner}">🦇 Batty</button><button data-w="heiner" aria-pressed="${isHeiner}">🧑 Heiner</button></span>`;
+    const offer=el("button","v65-offer");
+    if(isHeiner){offer.textContent="📅 In Kalender eintragen";
+      offer.onclick=()=>{toast("Kalender — zieh den Task oben in den Kalender, oder öffne ihn im Vollbild.");go("calendar");};}
+    else{offer.textContent="▶️ Auto-Play";offer.title="Batty leitet das Ziel aus Titel/Chat ab und arbeitet";
+      offer.onclick=()=>V65.play(t);}
+    bar.append(offer);
+    bar.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{mutateTask(t.id,{who:b.dataset.w});});
+    w.append(bar);
+  })();
   w.append(el("div","sec-title","Task-Chat"));
   const thread=el("div","thread");thread.id="thread";w.append(thread);
   // Task-Kontext sichtbar machen (wird beim Senden mitgegeben)
@@ -1726,46 +1795,47 @@ function renderTaskChat(c){const{p,t}=findTask(BCC.state.taskId);
 
 /* ---------------- OVERVIEW PANEL (Tasks) ---------------- */
 function renderOverviewPanel(){const o=$("#overview");o.innerHTML="";
-  const route=BCC.state.route;
-  let p=null,title="Aufgaben",layerTag="";
-  let items=[]; // {t, p}
-  if(route==="project"){p=projectBySlug(BCC.state.slug);title=p?p.name:"Projekt";layerTag="Projekt";
-    if(p)items=(p.tasks||[]).map(t=>({t,p}));}
-  else if(route==="task"){const ft=findTask(BCC.state.taskId);p=ft.p;title=p?p.name:"Task";layerTag="Projekt";
-    if(p)items=(p.tasks||[]).map(t=>({t,p}));}
-  else if(route==="workspace"){const key=BCC.state.wsKey;const meta=WS_DEF.find(x=>x[0]===key);
-    title=key==="_none"?"Ohne Workspace":(meta?meta[2]:key);layerTag="Workspace";
-    const inWs=pp=>key==="_none"?inferWorkspaces(pp).length===0:inferWorkspaces(pp).includes(key);
-    items=BCC.state.projects.filter(pp=>!pp.archived&&inWs(pp)).flatMap(pp=>(pp.tasks||[]).map(t=>({t,p:pp})));}
-  else if(route==="dashboard"){title="Marketing Dashboard";layerTag="Workspace";
-    items=BCC.state.projects.filter(pp=>inferWorkspaces(pp).includes("marketing")).flatMap(pp=>(pp.tasks||[]).map(t=>({t,p:pp})));}
-  else{ // Übersicht: offene/dringende über alles
-    title="Offen & dringend";layerTag="Alle";
-    items=BCC.state.projects.flatMap(pp=>(pp.tasks||[]).map(t=>({t,p:pp}))).filter(x=>!["done","idea"].includes(x.t.status));}
-
+  V65.tree();
+  const id=V65.routeNodeId();const node=V65.node(id);
+  const layerLabel={overview:"König",workspace:"Minister",project:"Politiker",task:"Angestellter"}[node.kind]||"Ebene";
   const head=el("div","ov-head");
-  head.innerHTML=`<span class="ov-layer">${layerTag}</span><span class="t">${title}</span><button class="ic ovw-mobile" aria-label="zu"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  head.innerHTML=`<span class="ov-layer">${layerLabel}</span><span class="t">${(node.emoji?node.emoji+" ":"")+_v65esc(node.name)}</span><button class="ic ovw-mobile" aria-label="zu"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
   head.querySelector(".ovw-mobile").onclick=()=>document.body.classList.remove("ovw-open");
   o.append(head);
   const sc=el("div","ov-scroll");
-  // Filter aktive/offene zuerst; auf Übersichts-Ebene nur offene
-  const ord={today:0,in_progress:1,blocked:2,waiting:3,pending:4,idea:5,done:6};
-  const isActive=t=>t.running||BCC.run[t.id]==="running"||taskBusy(t);
-  items.sort((a,b)=>{
-    // V6.4.4: zuletzt berührt zuerst, dann aktiv/blockiert, dann Status
-    const mineA=sessionTouch("task-"+a.t.id),mineB=sessionTouch("task-"+b.t.id);
-    if(mineA!==mineB)return mineB-mineA;
-    return ((isActive(b.t)?1:0)-(isActive(a.t)?1:0))||((a.t.status==="blocked"?0:1)-(b.t.status==="blocked"?0:1))||((ord[a.t.status]??9)-(ord[b.t.status]??9));
-  });
-  if(!items.length)sc.append(el("div","empty",'<div class="big">☑️</div>Keine Tasks hier.'));
-  else{const tl=el("div","tasklist");
-    // Bei Workspace-Ebene: Tasks ihrem Projekt zuordnen (Projektname als Untertitel)
-    items.forEach(({t,p:pp})=>tl.append(taskRow(t,pp,{compact:true,showProject:route==="workspace"||route==="overview"||route==="dashboard"})));
-    sc.append(tl)}
+  const rows=V65.treeRows(node,0,[]);
+  if(!rows.length)sc.append(el("div","empty",'<div class="big">\u{1F331}</div>Noch nichts auf dieser Ebene.<br>Leg mit \uFF0B einen Chat oder Task an.'));
+  else{const tl=el("div","ovtree");
+    rows.forEach(({n,depth})=>{
+      const st=V65.ST[V65.status6(n)]||V65.ST.grau;
+      const isTask=n.kind==="task";
+      const hasKids=(n.children||[]).length>0;const exp=!!V65.ovExp()[n.id];
+      const row=el("div","ovnode"+(isTask?" task":""));row.style.paddingLeft=(8+depth*16)+"px";row.style.setProperty("--sc","var("+st.v+")");
+      const tw=hasKids?(exp?"\u25BE":"\u25B8"):(isTask?"":"\u00B7");
+      const who=isTask?(V65.assignee(n)==="heiner"?"\u{1F9D1}":"\u{1F987}"):"";
+      row.innerHTML=`<span class="tw">${tw}</span><span class="nd"></span><span class="nm">${n.emoji?_v65esc(n.emoji)+" ":""}${_v65esc(n.name)}</span><span class="who">${who}</span>`;
+      if(isTask){
+        const t=n.raw;
+        if(V65.isSuggestion&&V65.isSuggestion(t)){const x=el("button","ovx");x.textContent="\u2715";x.title="Ablehnen";x.onclick=e=>{e.stopPropagation();V65.reject(t)};row.append(x);}
+        const pb=el("button","ovplay");pb.innerHTML=IC_PLAY;pb.title="Auto-Play";pb.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(pb);
+        row.onclick=()=>go("task",n.taskId);
+      }else{
+        if(hasKids){const c=el("span","cnt");c.textContent=n.children.length;row.append(c);}
+        const op=el("button","ovopen");op.innerHTML='<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';op.title="\u00d6ffnen";op.onclick=e=>{e.stopPropagation();go("node",n.id)};row.append(op);
+        row.onclick=()=>{if(hasKids){V65.ovExp()[n.id]=!exp;rerender();}else go("node",n.id);};
+      }
+      tl.append(row);
+    });
+    sc.append(tl);}
   o.append(sc);
-  if(p){const add=el("button","ovaddtask","＋ Neuer Task");add.onclick=()=>openNewTask(p.slug);o.append(add)}
+  const acts=el("div","ov-actions");acts.style.cssText="display:flex;gap:8px;padding:8px";
+  const aChat=el("button","ovaddtask","\uFF0B Chat");aChat.style.margin="0";
+  aChat.onclick=()=>V65.newChat(node);
+  acts.append(aChat);
+  if(node.kind==="project"){const aT=el("button","ovaddtask","\uFF0B Task");aT.style.margin="0";aT.onclick=()=>openNewTask(node.slug);acts.append(aT);}
+  o.append(acts);
 }
-function openNewTask(slug){const p=projectBySlug(slug);
+function openNewTask(slug,parentTaskId){const p=projectBySlug(slug);
   sheetOpen(`<div class="sheet-head"><span class="st">Neuer Task${p?" · "+p.name:""}</span><button class="x" id="shX">×</button></div>
     <div class="field"><label>Task-Titel</label><input id="ntTitle" placeholder="Kurz & klar — was ist zu tun?"></div>
     <div class="field"><label>Vision des Tasks (macht ihn Play-fähig)</label><textarea id="ntV" rows="3" placeholder="Konkretes Ziel + Deliverable, z.B. „5 Presse-Mails an NYC-Redaktionen entwerfen und in output/ ablegen"></textarea></div>
@@ -1775,7 +1845,7 @@ function openNewTask(slug){const p=projectBySlug(slug);
     const vision=$("#ntV").value.trim()||null;sheetClose();
     const created=await createTaskApi(slug,title,vision);
     if(!created){const id="n-"+Math.random().toString(36).slice(2,7);
-      const t={id,title,status:"today",prio:"yellow",who:"batty",projectSlug:slug,parentTaskId:null,dependsOn:[],vision};
+      const t={id,title,status:"today",prio:"yellow",who:"batty",projectSlug:slug,parentTaskId:parentTaskId||null,dependsOn:[],vision};
       if(p){p.tasks=p.tasks||[];p.tasks.push(t)}BCC.ov.newTasks=BCC.ov.newTasks||{};BCC.ov.newTasks[id]={slug,task:t};await saveOverrides()}
     else await refreshProjects();
     toast("Task angelegt"+(created?"":" (lokal)"));rerender()}}
@@ -1871,18 +1941,29 @@ function setupScrollDown(scroll){
   scroll.addEventListener("scroll",()=>{if(BCC._scroll.lock&&!atBottom())BCC._scroll.lock=false;upd()});
   BCC._scrollUpd=upd;upd();
 }
-async function loadThread(sessionId,thread,p,scroll){BCC._curThread={session:sessionId,proj:p};let hist=await getChat(sessionId);thread.innerHTML="";
+async function loadThread(sessionId,thread,p,scroll,opts){
+  const _sameSess=BCC._shownSession===sessionId;
+  const _prevTop=scroll?scroll.scrollTop:0;
+  const _wasBottom=scroll?(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<60):true;
+  BCC._curThread={session:sessionId,proj:p};let hist=await getChat(sessionId);thread.innerHTML="";
   if(!secureCtx())thread.append(el("div","securenote","⚠️ Mikrofon & iPhone-Install brauchen HTTPS — öffne die App über die https://…ts.net-Adresse."));
   if(!hist.length){const e=el("div","empty");e.innerHTML=`<div class="big">🦇</div>${p?`Arbeite mit AlphaBatty an <b>${p.name}</b>.`:"Batty, was liegt an?"}`;thread.append(e)}
   else{
-    // V6.4.1: NEUESTE oben, älteste unten. Bei >200 die ältesten ausblendbar (ganz unten).
-    const recent=hist.slice(-200).reverse();   // neueste zuerst
-    recent.forEach(m=>thread.append(bubble(m)));
-    if(hist.length>200){const more=el("button","loadolder",`↓ ${hist.length-200} ältere laden`);
-      more.onclick=()=>{thread.querySelectorAll(".loadolder").forEach(x=>x.remove());hist.slice(0,hist.length-200).reverse().forEach(m=>thread.append(bubble(m)))};
+    // V6.5.1: NORMAL — älteste oben, neueste unten. Ältere oben nachladbar.
+    if(hist.length>200){const more=el("button","loadolder",`↑ ${hist.length-200} ältere laden`);
+      more.onclick=()=>{const f=thread.querySelector(".loadolder");hist.slice(0,hist.length-200).forEach(m=>thread.insertBefore(bubble(m),f));f.remove()};
       thread.append(more)}
+    hist.slice(-200).forEach(m=>thread.append(bubble(m)));
   }
-  if(scroll){setupScrollDown(scroll);requestAnimationFrame(()=>{scroll.scrollTop=0;BCC._scroll&&(BCC._scroll.lock=false);BCC._scrollUpd&&BCC._scrollUpd()})}}
+  if(scroll){setupScrollDown(scroll);requestAnimationFrame(()=>{
+    if(_sameSess&&!(opts&&opts.toBottom)){
+      // Refresh derselben Ansicht (z.B. Play-Loop): Position HALTEN — kein Sprung mehr.
+      if((BCC._scroll&&BCC._scroll.lock)||_wasBottom)scroll.scrollTop=scroll.scrollHeight;
+      else scroll.scrollTop=_prevTop;
+    }else{ scroll.scrollTop=scroll.scrollHeight; BCC._scroll&&(BCC._scroll.lock=true); }
+    BCC._scrollUpd&&BCC._scrollUpd();
+  })}
+  BCC._shownSession=sessionId;}
 function scrollEnd(sc){if(sc&&BCC._scroll&&BCC._scroll.lock)requestAnimationFrame(()=>{sc.scrollTop=sc.scrollHeight});BCC._scrollUpd&&BCC._scrollUpd()}
 function bubble(m){if(m.audio){
     // V6.4.0: Audio = ruhiges Mikro-Logo + transkribierter Text. Animiert NUR während Transkription.
@@ -1917,11 +1998,11 @@ async function pushMsg(sessionId,thread,scroll,msg){const e=thread.querySelector
   const persist={...msg};if(persist.atts)persist.atts=persist.atts.map(a=>({name:a.name,type:a.type}));
   if(!persist.ts)persist.ts=Date.now();msg.ts=persist.ts;
   await appendChat(sessionId,persist);
-  // V6.4.1: neueste Nachricht OBEN → ans Anfang des Threads
+  // V6.5.1: neueste Nachricht UNTEN → anhängen
   const node=bubble(msg);
-  if(thread.firstChild&&thread.firstChild.classList&&thread.firstChild.classList.contains("loadolder"))thread.firstChild.after(node);
-  else thread.prepend(node);
-  scrollTop(scroll)}
+  thread.append(node);
+  if(msg.role==="me"){if(scroll){BCC._scroll&&(BCC._scroll.lock=true);requestAnimationFrame(()=>{scroll.scrollTop=scroll.scrollHeight});BCC._scrollUpd&&BCC._scrollUpd()}}
+  else scrollEnd(scroll)}
 function scrollTop(sc){if(sc)requestAnimationFrame(()=>{sc.scrollTop=0});BCC._scrollUpd&&BCC._scrollUpd()}
 
 async function sendMessage(sessionId,slug,thread,scroll,text,files,ctx){
@@ -1947,7 +2028,7 @@ async function sendMessage(sessionId,slug,thread,scroll,text,files,ctx){
     const where=ctx&&ctx.projectName?`Projekt „${ctx.projectName}"`:(targetSlug?`Projekt „${projectBySlug(targetSlug)?.name||targetSlug}"`:"das thematisch passende Projekt");
     agentText=`[BCC-AUFTRAG: Heiner möchte einen Task anlegen. Lege ihn ECHT in BCC an — schreibe ihn als Checkbox-Zeile in die TASKS.md von ${where} (oder rufe das task-create-Tool auf), damit er in der BCC-Übersicht und Seitenleiste erscheint. Markiere wer zuständig ist (Heiner/Batty). Bestätige danach kurz, in welchem Projekt der Task jetzt liegt.]\n\n`+agentText;
   }
-  let typing=null;try{typing=el("div","typing","<i></i><i></i><i></i>");thread.prepend(typing);scrollTop(scroll)}catch(_){}
+  let typing=null;try{typing=el("div","typing","<i></i><i></i><i></i>");thread.append(typing);scrollEnd(scroll)}catch(_){}
   let res;try{res=files.length?await BCC.api.chatFiles(agentText,files,sessionId,targetSlug||slug):await BCC.api.chat(agentText,sessionId,targetSlug||slug)}catch(e){BCC.logNet&&BCC.logNet("/chat",e);res={reply:"⚠️ Verbindung fehlgeschlagen.",mock:true}}
   setBusy(sessionId,targetSlug,false);if(ctx&&ctx.taskId)setBusy("task-"+ctx.taskId,null,false);
   // V6.4.3: Antwort wird IMMER persistiert — auch wenn man längst weg-navigiert ist (Multitasking!).
@@ -1980,7 +2061,7 @@ function setupRecorder(btn,timerEl,sessionId,slug,thread,scroll){let rec,chunks=
       setBusy(sessionId,slug,true);touchSession(sessionId,slug);rerenderSidebarOnly();
       // V6.4.3: DOM-Updates sind best-effort (man kann längst weg-navigiert sein — das ist ein
       // Multitasking-Tool). Die PERSISTENZ (appendChat) ist das, was niemals verloren gehen darf.
-      let ph=null;try{ph=bubble({audio:true,transcribing:true,role:"me"});thread.prepend(ph);scrollTop(scroll)}catch(_){}
+      let ph=null;try{ph=bubble({audio:true,transcribing:true,role:"me"});thread.append(ph);scrollEnd(scroll)}catch(_){}
       let res;try{res=await BCC.api.audio(blob,sessionId,slug)}catch(e){BCC.logNet&&BCC.logNet("/chat-audio",e);res={reply:"⚠️ Audio-Upload fehlgeschlagen.",mock:true}}
       let transcript=res.transcript||"";
       if(!transcript&&res.reply){const m=res.reply.match(/^🎤\s*[„"]([^"""]+)[""]/);if(m)transcript=m[1]}
@@ -1991,7 +2072,7 @@ function setupRecorder(btn,timerEl,sessionId,slug,thread,scroll){let rec,chunks=
       // DANN best-effort DOM (nur falls man noch in diesem Chat ist)
       try{if(ph&&ph.isConnected)ph.replaceWith(bubble(finalAudio));
         if(BCC._curThread&&BCC._curThread.session===sessionId){
-          const typing=el("div","typing","<i></i><i></i><i></i>");thread.prepend(typing);scrollTop(scroll);
+          const typing=el("div","typing","<i></i><i></i><i></i>");thread.append(typing);scrollEnd(scroll);
           const replyText=(res.reply||"").replace(/^🎤\s*[„"][^"""]*[""]\s*/,"").trim()||res.reply||"";
           typing.remove();await pushMsg(sessionId,thread,scroll,{role:"batty",text:replyText,mock:res.mock});
         }else{
@@ -2087,31 +2168,35 @@ function sheetOpen(html){$("#sheet").innerHTML=html;$("#sheetBack").classList.ad
 function sheetClose(){$("#sheetBack").classList.remove("open")}
 $("#sheetBack").addEventListener("click",e=>{if(e.target===$("#sheetBack"))sheetClose()});
 
-function openProjectMenu(slug){const p=projectBySlug(slug);if(!p)return;
-  sheetOpen(`<div class="sheet-head"><span class="st">${p.name}</span><button class="x" id="shX">×</button></div>
-   <div class="mlabel">Autonom</div>
-   <button class="mi" data-a="play"><span class="ico">${(p.tasks||[]).some(t=>t.running||t.status==="in_progress")?"⏹":"▶"}</span>${(p.tasks||[]).some(t=>t.running||t.status==="in_progress")?"Projekt-Loop stoppen":"Alle offenen Tasks autonom abarbeiten"}</button>
-   <div class="mlabel">Priorität</div>
-   <div class="prio-pick" id="pp"><button class="red" data-p="red"><span class="sw red"></span>Rot</button><button data-p="yellow"><span class="sw yellow"></span>Gelb</button><button data-p="green"><span class="sw green"></span>Grün</button><button data-p=""><span class="sw none"></span>—</button></div>
-   <div class="mlabel">Aktionen</div>
-   ${p.done?`<button class="mi" data-a="reopen"><span class="ico">↩︎</span>Wieder öffnen</button>`:`<button class="mi" data-a="complete"><span class="ico">✓</span>Abschließen (alle Tasks erledigt)</button>`}
-   <button class="mi" data-a="ws"><span class="ico">🏷</span>Workspaces ändern</button>
-   <button class="mi" data-a="merge"><span class="ico">⛙</span>In anderes Projekt einbetten…</button>
-   <button class="mi" data-a="rename"><span class="ico">✏️</span>Umbenennen</button>
-   <button class="mi" data-a="pin"><span class="ico">📌</span>${p.pinned?"Loslösen":"Oben anpinnen"}</button>
-   <button class="mi" data-a="archive"><span class="ico">🗂</span>${p.archived?"Aus Archiv":"Archivieren"}</button>
-   <div class="mlabel" style="margin-top:14px">Im Kalender einplanen</div>
-   <div id="miniCalP"></div>`);
+function openProjectMenu(slug){const p=projectBySlug(slug);if(!p)return;V65.tree();const node=V65.node("proj:"+slug);
+  const playing=(p.tasks||[]).some(t=>t.running||t.status==="in_progress");
+  sheetOpen(`<div class="sheet-head"><span class="st">${p.name}</span><button class="x" id="shX">\u00d7</button></div>
+    <div class="mlabel">Farbe / Status</div>
+    ${V65.colorPickHTML(node)}
+    <div class="mlabel">Aktionen</div>
+    <button class="mi" data-a="play"><span class="ico">${playing?"\u23f9":"\u25b6"}</span>${playing?"Loop stoppen":"Alle offenen Tasks autonom abarbeiten"}</button>
+    <button class="mi" data-a="move"><span class="ico">\u2194</span>Verschieben (in jede Ebene \u2014 Unterbau geht mit)\u2026</button>
+    <button class="mi" data-a="emoji"><span class="ico">\ud83d\ude00</span>Emoji/Icon w\u00e4hlen</button>
+    ${p.done?`<button class="mi" data-a="reopen"><span class="ico">\u21a9\ufe0e</span>Wieder \u00f6ffnen</button>`:`<button class="mi" data-a="finish"><span class="ico">\ud83d\udfe2</span>Abschlie\u00dfen & Folge-Raum</button>`}
+    <button class="mi" data-a="pin"><span class="ico">\ud83d\udccc</span>${p.pinned?"Losl\u00f6sen":"Oben anpinnen"}</button>
+    <button class="mi" data-a="archive"><span class="ico">\ud83d\uddc2</span>${p.archived?"Aus Archiv":"Archivieren"}</button>
+    <button class="mi" data-a="delete" style="color:var(--red)"><span class="ico">\ud83d\uddd1</span>L\u00f6schen</button>
+    <button class="mi" id="calToggleM"><span class="ico">\ud83d\udcc5</span>Im Kalender einplanen \u25be</button>
+    <div id="miniCalP" hidden></div>`);
   $("#shX").onclick=sheetClose;
-  renderMiniCal($("#miniCalP"),"proj-"+slug,p.name);
-  $("#pp").querySelectorAll("button").forEach(b=>b.onclick=()=>{patchProject(slug,{prio:b.dataset.p||null});sheetClose()});
-  $("#sheet").querySelectorAll(".mi").forEach(b=>b.onclick=()=>{const a=b.dataset.a;sheetClose();
+  V65.wireColorPick(node);
+  $("#calToggleM").onclick=()=>{const c=$("#miniCalP");if(c.hidden){c.hidden=false;renderMiniCal(c,"proj-"+slug,p.name);$("#calToggleM").innerHTML='<span class="ico">\ud83d\udcc5</span>Im Kalender einplanen \u25b4'}else{c.hidden=true;$("#calToggleM").innerHTML='<span class="ico">\ud83d\udcc5</span>Im Kalender einplanen \u25be'}};
+  $("#sheet").querySelectorAll(".mi[data-a]").forEach(b=>b.onclick=()=>{const a=b.dataset.a;
+    if(a==="emoji"){sheetClose();V65.tree();V65.pickEmoji(V65.node("proj:"+slug));return}
+    if(a==="move"){sheetClose();V65.tree();V65.movePicker(V65.node("proj:"+slug));return}
+    if(a==="finish"){sheetClose();V65.finishAndSpawn(V65.node("proj:"+slug));return}
+    if(a==="delete"){sheetClose();deleteProjectChat(slug);return}
+    sheetClose();
     if(a==="play")togglePlayProject(slug);
-    else if(a==="complete")completeProject(slug);else if(a==="reopen")patchProject(slug,{done:false,statusLabel:"Läuft"});
-    else if(a==="pin")patchProject(slug,{pinned:!p.pinned});else if(a==="archive")patchProject(slug,{archived:!p.archived});
-    else if(a==="rename"){const n=prompt("Neuer Name:",p.name);if(n&&n.trim())patchProject(slug,{name:n.trim()})}
-    else if(a==="ws")openWsPicker(slug)
-    else if(a==="merge")openMergePicker(slug)})}
+    else if(a==="reopen")patchProject(slug,{done:false,statusLabel:"L\u00e4uft"});
+    else if(a==="pin")patchProject(slug,{pinned:!p.pinned});
+    else if(a==="archive")patchProject(slug,{archived:!p.archived});
+  })}
 
 function openMergePicker(srcSlug){const src=projectBySlug(srcSlug);if(!src)return;
   const taskN=(src.tasks||[]).length;
@@ -2174,30 +2259,27 @@ function openWsPicker(slug){const p=projectBySlug(slug);const cur=new Set(p.work
   $("#wp").querySelectorAll("button").forEach(b=>b.onclick=()=>{const on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",!on)});
   $("#wsSave").onclick=()=>{const ws=[...$("#wp").querySelectorAll('button[aria-pressed="true"]')].map(b=>b.dataset.w);patchProject(slug,{workspaces:ws});sheetClose()}}
 
-function openTaskMenu(id){const{p,t}=findTask(id);if(!t)return;
+function openTaskMenu(id){const{p,t}=findTask(id);if(!t)return;V65.tree();const node=V65.node("task:"+id);
   const sched=BCC._calIndex&&BCC._calIndex["task-"+id];
   sheetOpen(`<div class="sheet-head"><span class="st">${t.title}</span><button class="x" id="shX">×</button></div>
-   <div class="mlabel">Status</div>
-   <div class="prio-pick" id="pp">
-     <button data-s="blocked"${t.status==="blocked"?' aria-pressed="true"':""}><span class="sw red"></span>Braucht mich</button>
-     <button data-s="in_progress"${t.status==="in_progress"?' aria-pressed="true"':""}><span class="sw yellow"></span>In Arbeit</button>
-     <button data-s="done"${t.status==="done"?' aria-pressed="true"':""}><span class="sw green"></span>Fertig ✓</button>
-   </div>
-   <div class="mlabel" style="margin-top:14px">Im Kalender einplanen <span style="text-transform:none;font-weight:400">— ab dem Tag läuft er automatisch</span></div>
-   <div id="miniCal"></div>
+   <div class="mlabel">Farbe / Status</div>
+   ${V65.colorPickHTML(node)}
+   <button class="mi" id="calToggleT"><span class="ico">📅</span>Im Kalender einplanen ▾</button>
+   <div id="miniCal" hidden></div>
    ${sched?`<button class="mi" data-a="unschedule"><span class="ico">🗓</span>Aus Kalender nehmen (aktuell: ${sched})</button>`:""}
    <div class="mlabel" style="margin-top:14px">Aktionen</div>
    <button class="mi" data-a="edit"><span class="ico">✏️</span>Aufgabenstellung bearbeiten</button>
+   <button class="mi" data-a="emoji"><span class="ico">😀</span>Emoji/Icon wählen</button>
    <button class="mi" data-a="play"><span class="ico">${BCC.run[id]?"⏹":"▶"}</span>${BCC.run[id]?"Stoppen":"Jetzt autonom bearbeiten"}</button>
    <button class="mi" data-a="move"><span class="ico">↪</span>In anderes Projekt verschieben</button>
    <button class="mi" data-a="archive"><span class="ico">📦</span>Archivieren</button>
    <button class="mi" data-a="delete" style="color:var(--red)"><span class="ico">🗑</span>Löschen</button>`);
   $("#shX").onclick=sheetClose;
-  renderMiniCal($("#miniCal"),"task-"+id,t.title);
-  $("#pp").querySelectorAll("button").forEach(b=>b.onclick=()=>{const s=b.dataset.s;mutateTask(id,{status:s});sheetClose();
-    toast(s==="done"?"Als fertig markiert ✓":s==="blocked"?"Markiert: braucht dich":"Status: in Arbeit")});
+  V65.wireColorPick(node);
+  $("#calToggleT").onclick=()=>{const c=$("#miniCal");if(c.hidden){c.hidden=false;renderMiniCal(c,"task-"+id,t.title);$("#calToggleT").innerHTML='<span class="ico">📅</span>Im Kalender einplanen ▴'}else{c.hidden=true;$("#calToggleT").innerHTML='<span class="ico">📅</span>Im Kalender einplanen ▾'}};
   $("#sheet").querySelectorAll(".mi").forEach(b=>b.onclick=async()=>{const a=b.dataset.a;
     if(a==="edit")openTaskEdit(id);
+     else if(a==="emoji"){sheetClose();V65.tree();V65.pickEmoji(V65.node("task:"+id));return}
     else if(a==="play"){sheetClose();togglePlay(t)}
     else if(a==="move")openMovePicker(id);
     else if(a==="unschedule"){await calUnschedule("task-"+id);sheetClose();toast("Aus Kalender genommen");rerender()}
@@ -2302,8 +2384,9 @@ function openMovePicker(id){const{p}=findTask(id);
   const si=$("#mvSearch");si.addEventListener("input",()=>render(si.value));si.focus();
 }
 
-function openNewProject(preWs){
-  sheetOpen(`<div class="sheet-head"><span class="st">Neues Projekt${preWs&&WS_LABEL[preWs]?" · "+WS_LABEL[preWs]:""}</span><button class="x" id="shX">×</button></div>
+function openNewProject(preWs,parentSlug){
+  const parentName=parentSlug&&projectBySlug(parentSlug)?projectBySlug(parentSlug).name:null;
+  sheetOpen(`<div class="sheet-head"><span class="st">${parentName?"Unterordner · "+parentName:"Neues Projekt"+(preWs&&WS_LABEL[preWs]?" · "+WS_LABEL[preWs]:"")}</span><button class="x" id="shX">×</button></div>
     <div class="field"><label>Name</label><input id="npName" placeholder="z.B. Etsy SEO"></div>
     <div class="field"><label>Ziel (1 Satz)</label><textarea id="npGoal" rows="2"></textarea></div>
     <div class="field"><label>Stadt (optional)</label><input id="npCity" placeholder="nyc / berlin / …"></div>
@@ -2317,7 +2400,7 @@ function openNewProject(preWs){
   $("#npCreate").onclick=async()=>{const name=$("#npName").value.trim();if(!name){toast("Name fehlt.");return}
     const ws=[...$("#npWs").querySelectorAll('button[aria-pressed="true"]')].map(b=>b.dataset.w);
     const city=$("#npCity").value.trim()||null;sheetClose();toast("Projekt wird angelegt…");
-    let p;try{p=await BCC.api.createProject(name,$("#npGoal").value.trim(),prio,ws,city,[])}
+    let p;try{p=await BCC.api.createProject(name,$("#npGoal").value.trim(),prio,ws,city,[],parentSlug||null)}
     catch(e){BCC.logNet&&BCC.logNet("/project-create",e);
       toast("⚠️ Anlegen fehlgeschlagen — Verbindung weg. Bitte gleich nochmal versuchen.");return}
     if(p&&p.error){toast("⚠️ "+p.error);return}
@@ -2325,6 +2408,8 @@ function openNewProject(preWs){
     await refreshAndKeep();
     // V6.4.3: falls der Refresh das Projekt (Replikations-Lag) noch nicht zeigt, trotzdem lokal sichtbar machen
     if(!projectBySlug(p.slug))BCC.state.projects.unshift(p);
+    if(parentSlug){BCC.ov.parentFolder=BCC.ov.parentFolder||{};BCC.ov.parentFolder[p.slug||name]=parentSlug;try{await saveOverrides()}catch(_){}
+      V65.tree&&V65.tree();go("node","proj:"+(p.slug||name));return}
     go("project",p.slug||name)}}
 
 async function ensureLost(){if(projectBySlug(LOST))return;
@@ -2334,11 +2419,372 @@ async function ensureLost(){if(projectBySlug(LOST))return;
 /* ============================================================================
    ROUTER / SHELL
    ============================================================================ */
+/* ============================================================================
+   V6.5 — Einheitlicher Knoten-Baum (König→Minister→Politiker→Angestellter)
+   Jeder Knoten = ein Raum mit Ziel. Beliebig tief. Status-Evolution.
+   Additiv: alte Routen bleiben heil. Einstieg: go("node","root").
+   ============================================================================ */
+const V65={};
+const _v65esc=(s)=>String(s==null?"":s).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+V65.STATUS=[
+  {k:"grau",   label:"unklar",    emoji:"⚪", v:"--v65-grau",    w:0},
+  {k:"violett",label:"Idee",      emoji:"🟣", v:"--v65-violett", w:1},
+  {k:"blau",   label:"geplant",   emoji:"🔵", v:"--v65-blau",    w:2},
+  {k:"gelb",   label:"arbeitet",  emoji:"🟡", v:"--v65-gelb",    w:3},
+  {k:"gruen",  label:"fertig",    emoji:"🟢", v:"--v65-gruen",   w:4},
+  {k:"rot",    label:"blockiert", emoji:"🔴", v:"--v65-rot",     w:9}
+];
+V65.ST=Object.fromEntries(V65.STATUS.map(s=>[s.k,s]));
+V65.mapOld=(s)=>({done:"gruen",in_progress:"gelb",running:"gelb",waiting:"blau",today:"gelb",blocked:"rot",idea:"violett",pending:"grau"}[s]||"grau");
+V65.taskStatus6=(t)=>{ if(!t)return"grau"; if(typeof taskBusy==="function"&&taskBusy(t))return"gelb";
+  if(t.running||BCC.run[t.id]==="running"||BCC.run[t.id]==="queued")return"gelb"; return V65.mapOld(t.status); };
+V65.projStatus6=(p)=>{ const ts=(p&&p.tasks)||[];
+  if(ts.some(t=>t.status==="blocked"))return"rot";
+  if(typeof projectActive==="function"&&projectActive(p))return"gelb";
+  if(p.done||(ts.length&&ts.every(t=>t.status==="done")))return"gruen";
+  if(ts.length&&ts.every(t=>t.status==="idea"))return"violett";
+  if(!ts.length)return"grau";
+  if(ts.some(t=>!["done","idea"].includes(t.status)))return"blau";
+  return"grau"; };
+V65.status6=(n)=>{ if(!n)return"grau";
+  const ovr=(BCC.ov&&BCC.ov.status6||{})[n.id]; if(ovr)return ovr;
+  if(n.kind==="task")return V65.taskStatus6(n.raw);
+  if(n.kind==="project")return V65.projStatus6(n.raw);
+  const set=(n.children||[]).map(k=>V65.status6(k));
+  if(set.includes("rot"))return"rot"; if(set.includes("gelb"))return"gelb";
+  if(set.length&&set.every(s=>s==="gruen"))return"gruen";
+  if(set.length&&set.every(s=>s==="violett"))return"violett";
+  if(!set.length)return"grau"; return"blau"; };
+V65.dotCls=(k)=>({rot:"red",gelb:"yellow",gruen:"green"}[k]||"");
+
+V65.tree=function(){
+  const projects=(BCC.state.projects||[]).filter(p=>!p.archived);
+  const ovP=(BCC.ov&&BCC.ov.parentFolder)||{};
+  const ovE=(BCC.ov&&BCC.ov.nodeEmoji)||{};
+  const byId={};
+  byId.root={id:"root",kind:"overview",name:"Übersicht",emoji:"👑",parentId:null,children:[],
+    goal:"Der gesamte Unternehmens-Staat im Blick."};
+  WS_DEF.forEach(w=>{byId["ws:"+w[0]]={id:"ws:"+w[0],kind:"workspace",wsKey:w[0],name:w[2],emoji:w[1],
+    parentId:"root",children:[],goal:""};});
+  byId["ws:_none"]={id:"ws:_none",kind:"workspace",wsKey:"_none",name:"Ohne Workspace",emoji:"📂",parentId:"root",children:[],goal:""};
+  projects.forEach(p=>{const id="proj:"+p.slug;
+    byId[id]={id,kind:"project",slug:p.slug,name:p.name,emoji:p.emoji||"",raw:p,parentId:null,children:[],
+      goal:(p.vision||(typeof lastStatus==="function"?lastStatus(p):"")||"")};});
+  projects.forEach(p=>{const n=byId["proj:"+p.slug]; let pid=null;
+    const pf=p.parentFolder||ovP[p.slug];
+    if(pf&&byId["proj:"+pf])pid="proj:"+pf;
+    else{const ws=(typeof inferWorkspaces==="function"?inferWorkspaces(p):[]).find(k=>WS_LABEL[k]); pid=ws?("ws:"+ws):"ws:_none";}
+    n.parentId=pid;});
+  projects.forEach(p=>{(p.tasks||[]).forEach(t=>{const id="task:"+t.id;
+    const pid=t.parentTaskId?("task:"+t.parentTaskId):("proj:"+p.slug);
+    byId[id]={id,kind:"task",taskId:t.id,slug:p.slug,name:t.title,emoji:t.emoji||"",raw:t,parentId:pid,children:[],
+      goal:t.vision||t.context||""};});});
+  Object.values(byId).forEach(n=>{if(n.parentId&&byId[n.parentId])byId[n.parentId].children.push(n);});
+  Object.values(byId).forEach(n=>{if(ovE[n.id])n.emoji=ovE[n.id];});
+  V65._byId=byId; return byId;
+};
+V65.node=(id)=>{const t=V65._byId||V65.tree();return t[id]||t.root;};
+V65.path=(id)=>{const t=V65._byId||V65.tree();const out=[];let n=t[id],g=0;while(n&&g++<40){out.unshift(n);n=n.parentId?t[n.parentId]:null;}return out;};
+V65.session=(n)=>n.kind==="overview"?"overview":n.kind==="workspace"?("ws-"+n.wsKey):n.kind==="project"?("proj-"+n.slug):("task-"+n.taskId);
+V65.rank=(n)=>{const s=V65.status6(n);const w={rot:5,gelb:4,blau:3,violett:2,gruen:1,grau:0}[s]||0;
+  const ts=(n.raw&&n.raw.updatedAt)||(n.kind==="overview"?9e15:0);return w*1e12+(ts||0);};
+
+V65.kidCard=function(k){
+  const st=V65.ST[V65.status6(k)]||V65.ST.grau;
+  const card=el("div","v65-card");card.style.setProperty("--sc","var("+st.v+")");
+  const cnt=(k.children||[]).length;
+  const sub=k.goal?_v65esc(k.goal).slice(0,84):(k.kind==="task"?"Task":(cnt?cnt+" drin":"leer"));
+  card.innerHTML=`<span class="v65-cdot"></span><div class="v65-cmain">`+
+    `<div class="v65-cname">${k.emoji?_v65esc(k.emoji)+" ":""}${_v65esc(k.name)}</div>`+
+    `<div class="v65-csub">${st.emoji} ${st.label}${cnt?" · "+cnt:""}${sub?" · "+sub:""}</div></div>`;
+  card.onclick=()=>{ if(k.kind==="task")go("task",k.taskId); else go("node",k.id); };
+  return card;
+};
+V65.spawnFolder=function(parent){
+  const preWs=parent.kind==="workspace"?parent.wsKey:(parent.kind==="project"?((typeof inferWorkspaces==="function"&&inferWorkspaces(parent.raw)[0])||null):null);
+  const parentSlug=parent.kind==="project"?parent.slug:null;
+  openNewProject(preWs&&WS_LABEL[preWs]?preWs:null,parentSlug);
+};
+V65.pickEmoji=function(n){
+  const set=["📣","🛒","⚙️","🎨","📰","📺","🖼","📊","💌","🔍","🚀","💡","🧠","🗽","🇩🇪","✏️","📷","🛠","👑","🐝","🔥","⭐","✅","❓"];
+  sheetOpen(`<div class="sheet-head"><span class="st">Emoji für „${_v65esc(n.name)}"</span><button class="x" id="shX">×</button></div>`+
+    `<div class="v65-emojis">${set.map(e=>`<button data-e="${e}">${e}</button>`).join("")}<button data-e="">∅</button></div>`);
+  $("#shX").onclick=sheetClose;
+  document.querySelectorAll(".v65-emojis button").forEach(b=>b.onclick=async()=>{
+    const e=b.dataset.e;
+    BCC.ov.nodeEmoji=BCC.ov.nodeEmoji||{};
+    if(e)BCC.ov.nodeEmoji[n.id]=e;else delete BCC.ov.nodeEmoji[n.id];
+    if(n.kind==="project")await patchProject(n.slug,{emoji:e||null});
+    else if(n.kind==="task")await mutateTask(n.taskId,{emoji:e||null});
+    else{try{await saveOverrides()}catch(_){}}
+    sheetClose();V65.tree();rerender();
+  });
+};
+/* ---- V6.5.0 · Phase 2/3/4 ---- */
+V65.routeNodeId=function(){const s=BCC.state,r=s.route;
+  if(r==="node")return s.nodeId||"root";
+  if(r==="project"&&s.slug)return "proj:"+s.slug;
+  if(r==="task"){const ft=findTask(s.taskId);return ft&&ft.p?"proj:"+ft.p.slug:"root";}
+  if(r==="workspace")return "ws:"+(s.wsKey||"_none");
+  return "root";};
+V65.counts=function(filt){V65.tree();const c={grau:0,violett:0,blau:0,gelb:0,gruen:0,rot:0};
+  Object.values(V65._byId).forEach(n=>{ if(n.kind==="task"&&filt&&!filt(n.raw))return;
+    if(n.kind==="project"||n.kind==="task"){const s=V65.status6(n);if(c[s]!=null)c[s]++;}});return c;};
+V65.analysis=function(filt){const c=V65.counts(filt);const tot=Object.values(c).reduce((a,b)=>a+b,0);
+  const lead=c.rot?`Zuerst entblocken: ${c.rot} Raum/Räume blockiert.`:c.gelb?`Der Staat arbeitet — ${c.gelb} aktiv.`:c.blau?`Gut geplant, aber wenig in Bewegung. Zeit zu starten.`:c.violett?`Viele Ideen, wenig konkret. Reif machen.`:tot?`Alles ruhig im Staat.`:`Noch leer — leg den ersten Raum an.`;
+  return{c,tot,lead};};
+V65.ovExp=()=>BCC.state.ovExp||(BCC.state.ovExp={});
+V65.assignee=function(node){const t=node&&node.raw;return (t&&(t.who==="heiner"||t.who==="user"))?"heiner":"batty";};
+V65.treeRows=function(node,depth,out){
+  (node.children||[]).slice().sort((a,b)=>V65.rank(b)-V65.rank(a)).forEach(k=>{
+    out.push({n:k,depth});
+    if((k.children||[]).length&&V65.ovExp()[k.id])V65.treeRows(k,depth+1,out);});
+  return out;};
+V65.advance=async function(node){
+  if(node.kind==="task"){const t=node.raw;
+    const chain={pending:"idea",idea:"today",today:"in_progress",in_progress:"done",blocked:"in_progress",waiting:"in_progress",done:"done"};
+    const nx=chain[t.status]||"in_progress";const s6=V65.ST[V65.mapOld(nx)];
+    await mutateTask(t.id,{status:nx});toast("Status → "+s6.emoji+" "+s6.label);return;}
+  toast("Räume reifen über ihre Tasks & Unter-Chats — entwickle die.");
+};
+V65.finishAndSpawn=function(node){
+  if(node.kind!=="project"){toast("Abschließen geht auf Raum-/Projekt-Ebene.");return;}
+  const p=node.raw,goal=p.vision||lastStatus(p)||p.name;
+  sheetOpen(`<div class="sheet-head"><span class="st">🟢 Abschließen & Folge-Raum</span><button class="x" id="shX">×</button></div>`+
+    `<label class="fld">Fazit<textarea id="fzF" rows="2">${_v65esc(lastStatus(p)||"")}</textarea></label>`+
+    `<label class="fld">Folge-Ziel (wird vererbt)<textarea id="fzG" rows="2">${_v65esc(goal)}</textarea></label>`+
+    `<button class="primary" id="fzGo" style="width:100%;margin-top:8px">Abschließen & Folge-Raum anlegen</button>`);
+  $("#shX").onclick=sheetClose;
+  $("#fzGo").onclick=async()=>{const g=$("#fzG").value.trim()||goal;
+    const parentSlug=p.parentFolder||((BCC.ov.parentFolder||{})[p.slug])||null;
+    await patchProject(p.slug,{done:true,statusLabel:"✓ Abgeschlossen"});
+    sheetClose();
+    const np=await BCC.api.createProject("↪ "+p.name,g,p.prio,inferWorkspaces(p),null,[],parentSlug);
+    if(np){if(!projectBySlug(np.slug))BCC.state.projects.unshift(np);
+      if(parentSlug){BCC.ov.parentFolder=BCC.ov.parentFolder||{};BCC.ov.parentFolder[np.slug]=parentSlug;await saveOverrides();}
+      toast("🟢 Abgeschlossen — Folge-Raum „"+np.name+"\" geboren");
+      try{await refreshProjects()}catch(_){}
+      go("project",np.slug);}
+    else{toast("🟢 Abgeschlossen");rerender();}
+  };
+};
+V65.movePicker=function(node){
+  if(node.kind!=="project"){toast("Verschieben gibt's f\u00fcr Raum-/Projekt-Chats.");return;}
+  V65.tree();
+  const banned=new Set();(function mark(id){if(!V65._byId[id])return;banned.add(id);(V65._byId[id].children||[]).forEach(c=>mark(c.id));})(node.id);
+  const exp=new Set(["root"]);V65.path(node.id).forEach(a=>exp.add(a.id));
+  const setFor=(n)=> n.id==="root"?{parentFolder:null,workspaces:[]} : n.kind==="workspace"?{parentFolder:null,workspaces:[n.wsKey]} : {parentFolder:n.slug};
+  const doMove=async(n)=>{const set=setFor(n);await patchProject(node.slug,set);BCC.ov.parentFolder=BCC.ov.parentFolder||{};if(set.parentFolder)BCC.ov.parentFolder[node.slug]=set.parentFolder;else delete BCC.ov.parentFolder[node.slug];try{await saveOverrides()}catch(_){}sheetClose();V65.tree();toast("Verschoben \u2192 "+n.name);rerender();};
+  function rowsHTML(n,depth){
+    const kids=(n.children||[]).filter(c=>c.kind!=="task").sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+    const hasK=kids.length>0;const open=exp.has(n.id);
+    const isCurrent=n.id===node.parentId;const isSelf=n.id===node.id;
+    const ic=n.emoji?_v65esc(n.emoji)+" ":(n.kind==="overview"?"\ud83d\udc51 ":n.kind==="workspace"?"":"\ud83d\udcc1 ");
+    let h=`<div class="mvrow${isCurrent?" cur":""}" style="padding-left:${8+depth*18}px">`+
+      `<span class="mvtw" data-exp="${n.id}">${hasK?(open?"\u25be":"\u25b8"):"\u00b7"}</span>`+
+      `<span class="mvnm" data-exp="${n.id}">${ic}${_v65esc(n.name)}${isCurrent?' <span class="mvhere">\u00b7 hier</span>':''}</span>`+
+      (isSelf?'<span class="mvban">der Chat</span>':banned.has(n.id)?'<span class="mvban">\u2014</span>':isCurrent?'':`<button class="mvsel" data-sel="${n.id}">Hierher</button>`)+
+      `</div>`;
+    if(hasK&&open)kids.forEach(k=>h+=rowsHTML(k,depth+1));
+    return h;
+  }
+  const render=()=>{const host=$("#mvTree");host.innerHTML=rowsHTML(V65._byId.root,0);
+    host.querySelectorAll("[data-exp]").forEach(e=>e.onclick=()=>{const id=e.dataset.exp;if(exp.has(id))exp.delete(id);else exp.add(id);render()});
+    host.querySelectorAll("[data-sel]").forEach(b=>b.onclick=()=>doMove(V65._byId[b.dataset.sel]));
+  };
+  sheetOpen(`<div class="sheet-head"><span class="st">Verschieben \u2014 \u201e${_v65esc(node.name)}"</span><button class="x" id="shX">\u00d7</button></div>`+
+    `<div class="mvhint">Klick auf einen Ordner klappt ihn auf. \u201eHierher" verschiebt den ganzen Chat samt Unterbau.</div>`+
+    `<div id="mvTree" class="mvtree"></div>`);
+  $("#shX").onclick=sheetClose;render();
+}
+
+V65.newChat=async function(parent){
+  const parentSlug=parent&&parent.kind==="project"?parent.slug:null;
+  const preWs=parent&&parent.kind==="workspace"&&parent.wsKey!=="_none"?parent.wsKey
+    :(parent&&parent.kind==="project"?((typeof inferWorkspaces==="function"&&inferWorkspaces(parent.raw)[0])||null):null);
+  toast("Neuer Chat — schreib einfach los. Titel & Ziel entstehen aus dem Gespräch.");
+  let np;try{np=await BCC.api.createProject("Neuer Chat","",null,(preWs&&WS_LABEL[preWs]?[preWs]:[]),null,[],parentSlug||null)}catch(e){np=null}
+  if(!np){toast("Konnte keinen Chat anlegen — läuft der Proxy?");return}
+  if(!projectBySlug(np.slug))BCC.state.projects.unshift(np);
+  BCC.ov.projects[np.slug]={...(BCC.ov.projects[np.slug]||{}),untitled:true};
+  if(parentSlug){BCC.ov.parentFolder=BCC.ov.parentFolder||{};BCC.ov.parentFolder[np.slug]=parentSlug;}
+  try{await saveOverrides()}catch(_){}
+  V65.tree();go("node","proj:"+np.slug);
+};
+V65.isSuggestion=function(t){return !!t && t.status==="idea";};
+V65.reject=async function(t){await deleteTask(t.id);toast("✕ Vorschlag verworfen.");};
+// V6.5.6: PLAY ist nie blockiert. Fehlt das Ziel, leitet Batty es aus dem Titel ab
+// (oder fragt im Chat nach) — das ist SEINE Aufgabe, nicht deine.
+V65.play=async function(t){
+  const patch={};
+  if(!t.vision&&!t.context)patch.vision="(aus Titel ableiten) "+t.title; // Saat fürs Ziel; Batty verfeinert
+  if(V65.isSuggestion&&V65.isSuggestion(t)){patch.status="today";patch.prio=t.prio||"yellow";}
+  if(Object.keys(patch).length)await mutateTask(t.id,patch);
+  const r=findTask(t.id);const tt=(r&&r.t)||t;
+  togglePlay(tt);
+  toast("▶ Auto-Play — Batty klärt Ziel & arbeitet.");
+};
+V65.accept=function(t){return V65.play(t);};
+V65.STATUS6_TO_TASK={grau:"pending",violett:"idea",blau:"waiting",gelb:"in_progress",gruen:"done",rot:"blocked"};
+V65.setColor=async function(node,k){
+  BCC.ov.status6=BCC.ov.status6||{};
+  if(k)BCC.ov.status6[node.id]=k;else delete BCC.ov.status6[node.id];
+  if(node.kind==="task"){const us=V65.STATUS6_TO_TASK[k];if(us){await mutateTask(node.taskId,{status:us});return;}}
+  try{await saveOverrides()}catch(_){}
+  V65.tree();rerender();
+  const s=V65.ST[k];if(s)toast("Farbe → "+s.emoji+" "+s.label);
+};
+V65.colorPickHTML=function(node){const cur=V65.status6(node);
+  return `<div class="v65-cpick">`+V65.STATUS.map(s=>`<button data-k="${s.k}" aria-pressed="${cur===s.k}" title="${s.label}"><span class="cs" style="background:var(${s.v})"></span>${s.label}</button>`).join("")+`</div>`;};
+V65.wireColorPick=function(node){document.querySelectorAll(".v65-cpick button").forEach(b=>b.onclick=()=>{const k=b.dataset.k;sheetClose();V65.setColor(node,k)});};
+async function deleteProjectChat(slug){const p=projectBySlug(slug);if(!p)return;
+  if(!confirm(`„${p.name}" löschen?\n\nWandert in den Papierkorb (.trash) — über den Proxy wiederherstellbar. Tasks & Unter-Chats gehen mit.`))return;
+  try{await BCC.api.deleteProject(slug)}catch(e){toast("Löschen fehlgeschlagen (Proxy?)");return}
+  BCC.state.projects=BCC.state.projects.filter(x=>x.slug!==slug);
+  if(BCC.ov.parentFolder)delete BCC.ov.parentFolder[slug];
+  try{await saveOverrides()}catch(_){}
+  toast("🗑 Gelöscht (im .trash wiederherstellbar)");go("overview");
+}
+
+function whoMatchFn(who){return t=>who==="all"||!who||(who==="heiner"?(t.who==="heiner"||t.who==="user"):(t.who!=="heiner"&&t.who!=="user"));}
+function renderRoyalBlock(w,whoKey){
+  const a=V65.analysis(whoKey&&whoKey!=="all"?whoMatchFn(whoKey):null);
+  const box=el("div","v65-royal");
+  box.innerHTML=`<div class="v65-rl">👑 Tagesanalyse des Königs</div><div class="v65-rt">${_v65esc(a.lead)}</div>`;
+  const boxes=el("div","v65-statboxes");
+  V65.STATUS.forEach(s=>{const n=a.c[s.k]||0;const d=el("div","v65-statbox");d.style.setProperty("--sc","var("+s.v+")");
+    d.innerHTML=`<span class="v65-sbdot"></span><span class="v65-sbv">${n}</span><span class="v65-sbk">${s.label}</span>`;
+    d.onclick=()=>{BCC._statFilter=BCC._statFilter===s.k?null:s.k;rerender()};boxes.append(d);});
+  box.append(boxes);
+  const dev=el("button","v65-devbtn","💡 Entwicklungs-Vorschläge machen");
+  dev.onclick=()=>{const th=$("#thread");if(th){th.scrollIntoView({behavior:"smooth"});}
+    const inp=document.querySelector(".composer textarea,#composerInput,.cmp-input");
+    if(inp){inp.value="König, analysiere den Staat und schlage die 3 wichtigsten Entwicklungen vor.";inp.focus();}};
+  box.append(dev);
+  w.append(box);
+}
+(function v65css2(){const s=document.createElement("style");s.textContent=
+  ".v65-royal{border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 16px;background:var(--panel)}"+
+  ".v65-rl{font:600 11px/1 var(--mono);letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}"+
+  ".v65-rt{font-size:15px;line-height:1.5;margin:7px 0 12px}"+
+  ".v65-statboxes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}"+
+  "@media(min-width:680px){.v65-statboxes{grid-template-columns:repeat(6,1fr)}}"+
+  ".v65-statbox{display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px;border:1px solid var(--line);border-top:3px solid var(--sc);border-radius:10px;cursor:pointer;background:var(--bg-2)}"+
+  ".v65-statbox:hover{border-color:var(--sc)}.v65-sbdot{display:none}"+
+  ".v65-sbv{font-size:19px;font-weight:700}.v65-sbk{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}"+
+  ".v65-devbtn{margin-top:12px;width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg-2);color:var(--ink);cursor:pointer;font:inherit;font-weight:600}"+
+  ".v65-devbtn:hover{border-color:var(--accent)}"+
+  ".v65-move{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto}"+
+  ".v65-move button{text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);cursor:pointer;font:inherit}"+
+  ".v65-move button:hover{border-color:var(--accent)}"+
+  ".ovtree{display:flex;flex-direction:column;gap:3px}"+
+  ".ovnode{display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:9px;cursor:pointer}"+
+  ".ovnode:hover{background:var(--accent-soft)}"+
+  ".ovnode .tw{width:16px;flex:0 0 auto;text-align:center;color:var(--muted);font-size:11px}"+
+  ".ovnode .nd{width:9px;height:9px;border-radius:99px;background:var(--sc);flex:0 0 auto}"+
+  ".ovnode .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}"+
+  ".ovnode .who{font-size:12px;flex:0 0 auto}.ovnode .cnt{font-size:11px;color:var(--muted);flex:0 0 auto}"+
+  ".v65-assign{display:flex;gap:8px;align-items:center;margin:10px 0}"+
+  ".v65-assign .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}"+
+  ".v65-assign .seg button{padding:6px 12px;background:var(--panel);color:var(--ink);border:0;cursor:pointer;font:inherit}"+
+  ".v65-assign .seg button[aria-pressed=true]{background:var(--accent);color:var(--on-accent)}"+
+  ".v65-offer{padding:6px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg-2);color:var(--ink);cursor:pointer;font:inherit;font-weight:600}"+
+  ".sugbtn{flex:0 0 auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer;margin-left:4px}"+
+  ".sugbtn svg{width:15px;height:15px}"+
+  ".sugbtn.play{border-color:var(--v65-gruen);color:var(--v65-gruen)}.sugbtn.play:hover{background:var(--v65-gruen);color:#fff}"+
+  ".sugbtn.x{border-color:var(--v65-rot);color:var(--v65-rot);font-size:15px;line-height:1}.sugbtn.x:hover{background:var(--v65-rot);color:#fff}"+
+  ".v65-cpick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:2px 0 4px}"+
+  ".v65-cpick button{display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);cursor:pointer;font:inherit;font-size:13px}"+
+  ".v65-cpick button[aria-pressed=true]{border-color:var(--ink);background:var(--accent-soft)}"+
+  ".v65-cpick .cs{width:13px;height:13px;border-radius:99px;flex:0 0 auto}"+
+  ".ctitleinput{font:inherit;font-weight:700;font-size:16px;background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:2px 8px;color:var(--ink);min-width:150px;max-width:60vw}"+
+  ".ctitleedit{opacity:.55}.ctitleedit:hover{opacity:1}"+
+  ".ovnode.task{padding-top:6px;padding-bottom:6px}"+
+  ".ovplay{flex:0 0 auto;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;border:0;background:var(--ink);color:var(--bg);cursor:pointer;margin-left:8px}"+
+  ".ovplay svg{width:18px;height:18px;fill:currentColor}.ovplay:hover{opacity:.85}"+
+  ".ovx{flex:0 0 auto;width:28px;height:28px;border-radius:8px;border:1.5px solid var(--v65-rot);background:transparent;color:var(--v65-rot);cursor:pointer;margin-left:6px;font-size:14px;line-height:1}"+
+  ".ovx:hover{background:var(--v65-rot);color:#fff}"+
+  ".ovopen{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--muted);cursor:pointer;opacity:.45;margin-left:2px}"+
+  ".ovopen svg{width:16px;height:16px}.ovnode:hover .ovopen{opacity:1}"+
+  ".mvtree{max-height:62vh;overflow:auto;padding:4px 8px 10px}"+
+  ".mvrow{display:flex;align-items:center;gap:6px;padding:7px 6px;border-radius:8px}"+
+  ".mvrow:hover{background:var(--accent-soft)}.mvrow.cur{background:var(--accent-soft)}"+
+  ".mvtw{width:16px;text-align:center;color:var(--muted);cursor:pointer;flex:0 0 auto}"+
+  ".mvnm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;font-size:14px}"+
+  ".mvhere{color:var(--muted);font-size:11px}"+
+  ".mvsel{flex:0 0 auto;padding:4px 11px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;font:inherit;font-size:12px}"+
+  ".mvsel:hover{background:var(--accent);color:var(--on-accent)}"+
+  ".mvban{flex:0 0 auto;color:var(--muted);opacity:.5;font-size:11px;padding:0 8px}"+
+  ".mvhint{margin:0 18px 8px;font-size:12px;color:var(--muted);line-height:1.4}";
+  document.head.appendChild(s);})();
+
+function renderNode(c){
+  V65.tree();
+  const id=BCC.state.nodeId||"root";
+  const n=V65.node(id);
+  if(n.kind==="task")return go("task",n.taskId);
+  const path=V65.path(id);
+  const st=V65.ST[V65.status6(n)]||V65.ST.grau;
+  const crumb=path.slice(0,-1).map(a=>({label:(a.emoji?a.emoji+" ":"")+a.name,go:()=>a.id==="root"?go("overview"):a.id.indexOf("ws:")===0?go("workspace",a.wsKey):go("node",a.id)}));
+  const role={overview:"König",workspace:"Minister",project:"Politiker"}[n.kind]||"Raum";
+  c.append(chead((n.emoji?n.emoji+" ":"")+_v65esc(n.name),{
+    dotClass:V65.dotCls(st.k),dotBlink:st.k==="rot"||st.k==="gelb",
+    plus:()=>V65.newChat(n),editTitle:n.kind==="project"?(v)=>patchProject(n.slug,{name:v}):null,
+    refresh:()=>doRefresh({level:"all"}),crumb,badges:[{label:st.emoji+" "+st.label}]}));
+  const sc=el("div","cscroll");const w=el("div","wrap");
+  const head=el("div","v65-roomhead");
+  head.innerHTML=`<div class="v65-role">${role}${n.kind==="overview"?" · Tagesanalyse":""}</div>`+
+    `<div class="v65-goal">${n.goal?_v65esc(n.goal):'<span class="muted">Noch kein Ziel destilliert — schreib unten, der Raum entwickelt sich.</span>'}</div>`;
+  w.append(head);
+  const bar=el("div","v65-spawnbar");
+  const addF=el("button","ovaddtask");addF.textContent="＋ Chat";addF.onclick=()=>V65.newChat(n);bar.append(addF);
+  if(n.kind==="project"){const addT=el("button","ovaddtask");addT.textContent="＋ Task";addT.onclick=()=>openNewTask(n.slug);bar.append(addT);}
+  const emo=el("button","ovaddtask");emo.textContent=(n.emoji||"🙂")+" Emoji";emo.onclick=()=>V65.pickEmoji(n);bar.append(emo);
+  if(n.kind==="project"){
+    const mv=el("button","ovaddtask");mv.textContent="↔ Verschieben";mv.onclick=()=>V65.movePicker(n);bar.append(mv);
+    const adv=el("button","ovaddtask");adv.textContent="▸ Status weiter";adv.onclick=()=>V65.advance(n);bar.append(adv);
+    const fin=el("button","ovaddtask");fin.textContent="🟢 Abschließen & Folge-Raum";fin.onclick=()=>V65.finishAndSpawn(n);bar.append(fin);
+  }
+  w.append(bar);
+  const kids=(n.children||[]).slice().sort((a,b)=>V65.rank(b)-V65.rank(a));
+  if(kids.length){
+    const lbl=n.kind==="overview"?"Minister":n.kind==="workspace"?"Projekte / Unterordner":"Unter-Räume & Tasks";
+    w.append(el("div","sec-title",`${kids.length} ${lbl}`));
+    const grid=el("div","v65-kids");kids.forEach(k=>grid.append(V65.kidCard(k)));w.append(grid);
+  }
+  w.append(el("div","sec-title","Raum-Chat — Ziel destillieren, Vorschläge & Tasks nach unten"));
+  const thread=el("div","thread");thread.id="thread";w.append(thread);
+  sc.append(w);c.append(sc);
+  const sess=V65.session(n);
+  c.append(buildComposer(sess,n.slug||null,thread,sc));
+  loadThread(sess,thread,{name:n.name},sc);
+}
+(function v65css(){const s=document.createElement("style");s.textContent=
+  ".v65-roomhead{margin:2px 0 12px}"+
+  ".v65-role{font:600 11px/1 var(--mono);letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}"+
+  ".v65-goal{font-size:14px;line-height:1.5}"+
+  ".v65-spawnbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}"+
+  ".v65-kids{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}"+
+  ".v65-card{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);border-left:4px solid var(--sc);border-radius:12px;background:var(--panel);cursor:pointer;box-shadow:var(--shadow)}"+
+  ".v65-card:hover{border-color:var(--sc)}"+
+  ".v65-cdot{width:10px;height:10px;border-radius:99px;background:var(--sc);flex:0 0 auto}"+
+  ".v65-cmain{min-width:0;flex:1}"+
+  ".v65-cname{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"+
+  ".v65-csub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}"+
+  ".v65-emojis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}"+
+  ".v65-emojis button{font-size:22px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer}"+
+  ".chead .cplus{border:1px solid var(--line);border-radius:9px}.chead .cplus:hover{border-color:var(--accent);color:var(--accent)}";
+  document.head.appendChild(s);})();
+
+/* ============================================================================
+   ROUTER / SHELL
+   ============================================================================ */
 function go(route,arg=null){BCC.state.route=route;
   // V6.4.9: KEIN touchSession beim bloßen Anschauen — Chats steigen nur durch Schreiben/Arbeiten auf.
   if(route==="project"){BCC.state.slug=arg;BCC.state.taskId=null}
   else if(route==="task"){BCC.state.taskId=arg}
   else if(route==="workspace"){BCC.state.wsKey=arg}
+  else if(route==="node"){BCC.state.nodeId=arg||"root"}
   else{BCC.state.slug=null;BCC.state.taskId=null}
   closeDrawer();
   document.body.classList.remove("ovw-open");
@@ -2346,6 +2792,7 @@ function go(route,arg=null){BCC.state.route=route;
 function parseHash(){const[route,arg]=location.hash.replace(/^#/,"").split("/");BCC.state.route=route||"overview";
   if(BCC.state.route==="project")BCC.state.slug=arg||null;else if(BCC.state.route==="task")BCC.state.taskId=arg||null;
   else if(BCC.state.route==="workspace")BCC.state.wsKey=arg||null;
+  else if(BCC.state.route==="node")BCC.state.nodeId=arg||"root";
   else if(BCC.state.route==="filter")BCC.state.filterKey=arg||null}
 window.addEventListener("hashchange",()=>{parseHash();rerender();sheetClose()});
 
@@ -2376,12 +2823,20 @@ $("#menuBtn").onclick=()=>document.body.classList.toggle("drawer");
 $("#ovwBtn").onclick=()=>{if(window.innerWidth>=860)document.body.classList.toggle("ovw-hidden");else document.body.classList.toggle("ovw-open")};
 $("#scrim").onclick=()=>{closeDrawer();document.body.classList.remove("ovw-open")};
 $("#globeHome").onclick=()=>go("overview");
-$("#brandBtn").onclick=openVersionSheet;
+$("#brandBtn").onclick=()=>go("overview");
+$("#brandVer").onclick=e=>{e.stopPropagation();openVersionSheet()};
+$("#brandVer").style.cursor="pointer";$("#brandVer").title="Version & Changelog";
+(function ovResizeInit(){
+  const h=$("#ovResize");if(!h)return;
+  try{const sv=localStorage.getItem("bcc:ovw");if(sv){const n=parseInt(sv,10);if(n>=260&&n<=680)document.documentElement.style.setProperty("--ovw",n+"px")}}catch(_){}
+  let drag=false;
+  const onMove=e=>{if(!drag)return;const x=(e.touches?e.touches[0].clientX:e.clientX);let wv=window.innerWidth-x;wv=Math.max(260,Math.min(680,wv));document.documentElement.style.setProperty("--ovw",wv+"px")};
+  const onUp=()=>{if(!drag)return;drag=false;h.classList.remove("drag");document.body.style.userSelect="";try{localStorage.setItem("bcc:ovw",parseInt(getComputedStyle(document.documentElement).getPropertyValue("--ovw"),10))}catch(_){}window.removeEventListener("pointermove",onMove);window.removeEventListener("pointerup",onUp)};
+  h.addEventListener("pointerdown",e=>{drag=true;h.classList.add("drag");document.body.style.userSelect="none";window.addEventListener("pointermove",onMove);window.addEventListener("pointerup",onUp);e.preventDefault()});
+})();
 $("#navHome").onclick=()=>go("overview");
 $("#navDash").onclick=()=>go("dashboard");
-$("#newChat").onclick=()=>{go("overview");toast("Neuer Chat — Auto-Match ordnet die erste Nachricht einem Projekt zu.")};
 $("#cityFilter").onchange=e=>{BCC.state.city=e.target.value;rerender()};
-$("#wsFilter").onchange=e=>{BCC.state.ws=e.target.value;rerender()};
 $("#conn").onclick=openHealthOverlay;
 (()=>{const si=$("#sideSearch"),sx=$("#sideSearchX");let st;si.addEventListener("input",()=>{sx.hidden=!si.value;clearTimeout(st);st=setTimeout(()=>{BCC.state.q=si.value;renderSidebar()},180)});
   sx.onclick=()=>{si.value="";sx.hidden=true;BCC.state.q="";renderSidebar();si.focus()}})();
