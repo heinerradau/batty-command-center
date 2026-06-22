@@ -27,7 +27,7 @@
   --red:#d05c54; --red-soft:#d05c5422;
   --s-today:#d05c54; --s-progress:#4caf50; --s-waiting:#e6a817; --s-blocked:#d05c54;
   --s-done:#7a7b83; --s-pending:#8a8b93; --s-idea:#9a87c6;
-  --v65-grau:#8a8b93; --v65-violett:#9a87c6; --v65-blau:#5b9bd5; --v65-gelb:#e6a817; --v65-gruen:#4caf50; --v65-rot:#d05c54; }
+  --v65-grau:#8a8b93; --v65-violett:#9a87c6; --v65-blau:#0a84ff; --v65-gelb:#e6a817; --v65-gruen:#4caf50; --v65-rot:#d05c54; }
 :root[data-theme="light"]{ color-scheme:light;
   --bg:#f7f7f5; --bg-2:#f1f1ef; --panel:#ffffff; --panel-2:#f3f3f1; --line:#e4e4e0;
   --ink:#1d1e22; --ink-dim:#4a4b52; --muted:#86868d; --muted-2:#aeaeb4;
@@ -282,6 +282,8 @@ h1.vt{font-size:23px;letter-spacing:-.3px;margin:2px 0 16px;font-weight:750}
 .pdot.red,.trow .pdot.red{background:var(--p-red);border-color:var(--p-red)}
 .pdot.yellow,.trow .pdot.yellow{background:var(--p-yellow);border-color:var(--p-yellow)}
 .pdot.green,.trow .pdot.green{background:var(--p-green);border-color:var(--p-green)}
+.pdot.blau,.trow .pdot.blau,.ovnode .pdot.blau,.stask .pdot.blau{background:var(--v65-blau);border-color:var(--v65-blau);box-shadow:0 0 5px rgba(10,132,255,.7)}
+.pdot.violett,.trow .pdot.violett,.ovnode .pdot.violett,.stask .pdot.violett{background:var(--v65-violett);border-color:var(--v65-violett)}
 .trow .pdot.idea{border-style:dotted}
 .trow.blink .pdot{animation:blinkdot 1s infinite}
 .trow .tmid{flex:1;min-width:0;cursor:pointer}
@@ -581,9 +583,14 @@ h1.vt{font-size:23px;letter-spacing:-.3px;margin:2px 0 16px;font-weight:750}
    Single-File. Mock + KV-Fallback solange BCC.config-Endpoints null sind.
    ============================================================================ */
 const BCC={};
-BCC.VERSION="6.5.8";
+BCC.VERSION="6.6.3";
 BCC.CHANGELOG=[
-  {v:"6.5.8",notes:["König-Übersicht: echte verschachtelte Karten — Workspace → Projekt → Unterprojekt → Tasks, mit farbigem Seitenstreifen (Branch-Farbe) und Tiefen-Einrückung","Großer, gut bedienbarer Auge-Toggle (offen/zu) zum Auf-/Zuklappen auf jeder Ebene — im Zentrum und in der rechten Leiste","Rechte Leiste: gleiche Verschachtelungs-Logik (Streifen + Auge)"]},
+  {v:"6.6.3",notes:["Audio-Pfad im KV: Datei wird jetzt mit vollem Pfad gespeichert → Agenten finden sie sofort","Task-Agenten: PROJEKT-SLUG + „keinen neuen Ordner\" → keine Doppel-Projekte mehr","Audio-Suche: Agenten wissen jetzt dass Audios in /tmp/bcc/audio/ liegen","Keepalive V2: Proxy + Tailscale Funnel werden automatisch überwacht & neugestartet"]},
+  {v:"6.6.2",notes:["Rechte Leiste: einheitliches ✕ / ▶ an JEDEM Chat & Task — ablehnen/löschen (auch wenn schon gelb) oder Auto-Play, ohne Zwischenschritte","Linke Leiste: 🔵 geplant ist jetzt echtes elektrisches Blau und klar sichtbar — auch manuell gesetzte Status erscheinen (nicht nur rot/gelb/grün)"]},
+  {v:"6.6.1",notes:["Scroll-Fix endgültig: jeder geöffnete Chat/Raum/Projekt startet OBEN — nur der 2,6s-Hintergrund-Poll hält die Position (kein Springen ans Chat-Ende mehr)","Auf einzelne Nachrichten & Dateien antworten: „↩ Antworten\"-Button zitiert sie in den Composer","Dateien per Drag&Drop direkt auf das Chat-Feld ziehen → werden Anhang","Task in den Kalender ziehen fragt jetzt optional nach Uhrzeit & Ort (erscheint am Chip)"]},
+  {v:"6.6.0",notes:["Struktur deploy-fest: Verschachtelung, Farben & Emoji liegen jetzt dauerhaft in jeder projects/<slug>/data.json (im Backup), nicht mehr nur in der flüchtigen kv.json unter /tmp","Einmalige Auto-Migration: dein aktueller Stand wird beim ersten Start automatisch in die data.json geschrieben — nichts manuell neu organisieren","Frontend liest Struktur aus data.json als Quelle der Wahrheit (überlebt Reboot & Deploy)"]},
+  {v:"6.5.9",notes:["Scroll-Fixes (oben starten, Position halten, rechte Leiste kein Sprung), Timestamps, klickbare Dateien, vollständiger Fehler-Log-Export; Agenten-Proxy 6.5.7p1 übernommen"]},
+  {v:"6.5.8",notes:["Verschachtelte Karten mit farbigem Seitenstreifen + Auge-Toggle (Zentrum & rechte Leiste)"]},
   {v:"6.5.7",notes:["Zustände (fertig/läuft/grau→OK); Workspace-Sichtbarkeit; eine gemischte Liste links; 6 Status-Boxen klickbar; 4 alte Boxen raus"]},
   {v:"6.5.6",notes:["Verschieben als Baum; rechte Leiste nested auf Klick + großes schwarzes PLAY; kein Ziel-Gating"]},
   {v:"6.5.5",notes:["Rechtsklick-Menü vereinheitlicht: 6 Farben, Löschen (.trash), Kalender ausklappbar, Inline-Umbenennen, nur noch Verschieben"]},
@@ -914,6 +921,29 @@ async function mutateTask(id,patch){BCC.ov.tasks[id]={...(BCC.ov.tasks[id]||{}),
   const{t}=findTask(id);if(t)Object.assign(t,patch);BCC.api.mutateTask(id,patch);rerender()}
 async function patchProject(slug,patch){BCC.ov.projects[slug]={...(BCC.ov.projects[slug]||{}),...patch,updatedAt:NOW};await saveOverrides();
   const p=projectBySlug(slug);if(p)Object.assign(p,BCC.ov.projects[slug]);BCC.api.mutateProject(slug,patch);rerender()}
+// V6.6.0: Einmalige Migration — promotet die lokalen Overrides (parentFolder/Farbe/Emoji aus der
+// flüchtigen kv.json unter /tmp) dauerhaft in jede projects/<slug>/data.json (im Backup). Läuft einmal.
+async function migrateStructureToData(){
+  try{
+    if(!BCC.config.projectMutateEndpoint)return;            // nur live (echte data.json)
+    const flag=await BCC.kv.get("migrated6_6_0").catch(()=>null);if(flag)return;
+    const pf=(BCC.ov&&BCC.ov.parentFolder)||{},s6=(BCC.ov&&BCC.ov.status6)||{},em=(BCC.ov&&BCC.ov.nodeEmoji)||{};
+    let n=0;
+    for(const p of BCC.state.projects){
+      const patch={};
+      if(pf[p.slug]&&pf[p.slug]!==p.parentFolder)patch.parentFolder=pf[p.slug];
+      const col=s6["proj:"+p.slug];if(col&&col!==p.color)patch.color=col;
+      const emo=em["proj:"+p.slug];if(emo&&emo!==p.emoji)patch.emoji=emo;
+      if(!Object.keys(patch).length)continue;
+      Object.assign(p,patch);
+      BCC.ov.projects[p.slug]={...(BCC.ov.projects[p.slug]||{}),...patch};
+      try{await BCC.api.mutateProject(p.slug,patch);n++}catch(_){}
+    }
+    if(n){try{await saveOverrides()}catch(_){}}
+    await BCC.kv.set("migrated6_6_0",{at:Date.now(),migrated:n});
+    if(n){toast("✓ Struktur dauerhaft gesichert ("+n+" Projekte in data.json)");rerender();}
+  }catch(_){}
+}
 async function completeProject(slug){const p=projectBySlug(slug);if(p)(p.tasks||[]).forEach(t=>{if(t.status!=="idea"){BCC.ov.tasks[t.id]={...(BCC.ov.tasks[t.id]||{}),status:"done"};t.status="done"}});await patchProject(slug,{done:true,statusLabel:"✓ Abgeschlossen"})}
 async function moveTask(id,toSlug){BCC.ov.moves=BCC.ov.moves||{};BCC.ov.moves[id]=toSlug;await saveOverrides();
   const{p,t}=findTask(id);if(t&&p.slug!==toSlug){const tgt=projectBySlug(toSlug);if(tgt){p.tasks=p.tasks.filter(x=>x.id!==id);t.projectSlug=toSlug;tgt.tasks.push(t)}}
@@ -964,8 +994,9 @@ function collectChats(hiddenWs){
     if(s.startsWith("proj-")){const p=projectBySlug(s.slice(5));if(!p)return;
       const wss=inferWorkspaces(p);if(wss.length&&wss.every(w=>hiddenWs[w]))return;
       const pd=projectDot(p);
+      const pSix=p.color||(BCC.ov&&BCC.ov.status6||{})["proj:"+p.slug];
       add({session:s,label:p.name,icon:"💬",tag:WS_LABEL[wss[0]]?.slice(0,3)||"",
-        dotCls:busy?"yellow":pd.cls,blink:busy||pd.blink,active:BCC.state.route==="project"&&BCC.state.slug===p.slug,
+        dotCls:busy?"yellow":V65.dotSix(pSix,pd.cls,pd.blink),blink:busy||pd.blink,active:BCC.state.route==="project"&&BCC.state.slug===p.slug,
         touch:Math.max(touch,busy?Date.now():0),go:()=>go("project",p.slug)});}
     // ws-* (Workspace-Chat)
     else if(s.startsWith("ws-")){const key=s.slice(3);const meta=WS_DEF.find(x=>x[0]===key);if(!meta||hiddenWs[key])return;
@@ -975,8 +1006,9 @@ function collectChats(hiddenWs){
     else if(s.startsWith("task-")){const ft=findTask(s.slice(5));if(!ft||!ft.t)return;
       const wss=inferWorkspaces(ft.p);if(wss.length&&wss.every(w=>hiddenWs[w]))return;
       const ws=workStatus(ft.t);
+      const tSix=(BCC.ov&&BCC.ov.status6||{})["task:"+ft.t.id];
       add({session:s,label:ft.t.title,icon:"☑",tag:ft.p?ft.p.name.slice(0,10):"",
-        dotCls:ws.cls,blink:ws.blink,active:BCC.state.route==="task"&&BCC.state.taskId===ft.t.id,
+        dotCls:V65.dotSix(tSix,ws.cls,ws.blink),blink:ws.blink,active:BCC.state.route==="task"&&BCC.state.taskId===ft.t.id,
         touch:Math.max(touch,busy?Date.now():0),go:()=>go("task",ft.t.id)});}
     // dashboard — läuft als Marketing-Ebene
     else if(s==="dashboard"){if(hiddenWs["marketing"])return;
@@ -1049,7 +1081,7 @@ function renderSidebar(){
       .filter(({t})=>t.status!=="idea"&&(taskBusy(t)||t.running||t.status==="in_progress"||t.status==="blocked"||t.status==="today"||sessionTouch("task-"+t.id)))
       .filter(({t})=>!seenTask.has(t.id))
       .filter(({p})=>{const wss=inferWorkspaces(p);return wss.length===0||!wss.every(w=>hiddenWs[w])});
-    const taskEntries=activeTasks.map(({t,p})=>{const ws=workStatus(t);return{label:t.title,icon:"",tag:WS_LABEL[inferWorkspaces(p)[0]]?.slice(0,3)||"",dotCls:ws.cls||"grey",blink:ws.blink,active:BCC.state.route==="task"&&BCC.state.taskId===t.id,done:t.status==="done",title:p.name,touch:Math.max(sessionTouch("task-"+t.id),taskBusy(t)?Date.now():0,t.updatedAt||0,p.updatedAt||0),go:()=>go("task",t.id)};});
+    const taskEntries=activeTasks.map(({t,p})=>{const ws=workStatus(t);const tSix=(BCC.ov&&BCC.ov.status6||{})["task:"+t.id];return{label:t.title,icon:"",tag:WS_LABEL[inferWorkspaces(p)[0]]?.slice(0,3)||"",dotCls:V65.dotSix(tSix,ws.cls,ws.blink)||"grey",blink:ws.blink,active:BCC.state.route==="task"&&BCC.state.taskId===t.id,done:t.status==="done",title:p.name,touch:Math.max(sessionTouch("task-"+t.id),taskBusy(t)?Date.now():0,t.updatedAt||0,p.updatedAt||0),go:()=>go("task",t.id)};});
     let all=[...chats.map(c=>({...c,done:false})),...taskEntries];
     if(q)all=all.filter(it=>(it.label||"").toLowerCase().includes(q));
     all.sort((a,b)=>(b.blink?1:0)-(a.blink?1:0)||(b.touch||0)-(a.touch||0));
@@ -1274,7 +1306,10 @@ function taskRow(t,p,opts={}){
   // V6.5.7: einheitliche Aktion je Zustand
   const act=V65.actionOf(t);
   if(act==="done"){row.classList.add("done");}
-  else if(act==="pause"){const a=el("button","playpill pausepill");a.innerHTML=IC_PAUSE+"Pause";a.title="Autonome Bearbeitung stoppen";a.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(a)}
+  else if(act==="pause"){
+    const bs=BCC._busyStart&&BCC._busyStart["task-"+t.id];
+    if(bs){const ts=el("span","runsince");ts.textContent="⚙ seit "+fmtMsgTime(bs);ts.title="Autonome Bearbeitung läuft seit "+new Date(bs).toLocaleString();row.append(ts)}
+    const a=el("button","playpill pausepill");a.innerHTML=IC_PAUSE+"Pause";a.title="Autonome Bearbeitung stoppen";a.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(a)}
   else if(act==="ok"){const a=el("button","okpill");a.textContent="OK";a.title="Zu 🟣 Idee entwickeln — dann play-fähig";a.onclick=e=>{e.stopPropagation();V65.toIdea(t)};row.append(a)}
   else if(act==="suggest"){
     const acc=el("button","sugbtn play");acc.innerHTML=IC_PLAY;acc.title="Annehmen & starten";acc.onclick=e=>{e.stopPropagation();V65.play(t)};
@@ -1427,9 +1462,46 @@ async function openHealthOverlay(){const h=BCC.health||await fetchHealth();const
 function openErrorLog(){Promise.resolve(BCC.kv.get("errors").catch(()=>[])).then(kv=>{const errs=mergeErrs(kv);
   sheetOpen(`<div class="sheet-head"><span class="st">🐛 Fehler-Log · letzte ${Math.min(errs.length,10)}</span><button class="x" id="shX">×</button></div>
     ${errs.length?errs.slice(-10).reverse().map(e=>`<div class="hrow"><span class="hv"><b>${e.message}</b>${e.count>1?` ×${e.count}`:""}<br><span style="color:var(--muted);font-size:11px">${new Date(e.ts*1000).toLocaleString()} · ${e.where||""}</span></span></div>`).join(""):'<div class="empty">Keine Fehler. 🎉</div>'}
-    <button class="mi" id="errClear" style="margin-top:8px"><span class="ico">🧹</span>Log leeren</button>`);
+    <button class="mi" id="errExport" style="margin-top:8px"><span class="ico">⬇️</span>Logs vollständig exportieren (alle Details + Timestamps)</button>
+    <button class="mi" id="errClear"><span class="ico">🧹</span>Log leeren</button>`);
   $("#shX").onclick=sheetClose;
+  const ex=$("#errExport");if(ex)ex.onclick=()=>exportErrorLog();
   const ec=$("#errClear");if(ec)ec.onclick=async()=>{BCC._errs=[];try{localStorage.removeItem("bcc:errors")}catch(_){}try{await BCC.kv.set("errors",[])}catch(_){}sheetClose();toast("Fehler-Log geleert")}})}
+function downloadText(filename,text,mime){const blob=new Blob([text],{type:(mime||"text/plain")+";charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);}
+async function exportErrorLog(){
+  let kv=[];try{kv=await BCC.kv.get("errors")||[]}catch(_){}
+  const errs=mergeErrs(kv);
+  let proxyErrs=[];
+  if(BCC.config.errorsEndpoint){try{const r=await fetch(BCC.config.errorsEndpoint);let j=await r.json();proxyErrs=Array.isArray(j)?j:(j.errors||j.log||[])}catch(_){}}
+  const now=new Date();const sep="=".repeat(64);
+  const L=[];
+  L.push("BCC Fehler-Log — Vollständiger Export");
+  L.push(sep);
+  L.push("Erstellt:  "+now.toISOString()+"  ("+now.toLocaleString()+")");
+  L.push("Version:   "+BCC.VERSION+(BCC.health&&BCC.health.version?" · Proxy "+BCC.health.version:""));
+  L.push("Frontend:  "+errs.length+" Einträge   Proxy: "+proxyErrs.length+" Einträge");
+  if(BCC.health){const h=BCC.health;L.push("Health:    "+(h.level||"?")+" · CPU "+h.cpu+"% · RAM "+(h.ram&&h.ram.usedPct)+"% · Uptime "+(h.uptime!=null?Math.floor(h.uptime/3600)+"h":"–"));}
+  L.push(sep);L.push("");
+  L.push("## FRONTEND-LOG (neueste zuerst)");L.push("");
+  if(!errs.length)L.push("(keine)");
+  errs.slice().reverse().forEach(e=>{
+    const t=e.ts?new Date(e.ts*1000):null;
+    L.push("["+(t?t.toISOString():"?")+"] "+(e.message||"(ohne Text)")+(e.count>1?"  ×"+e.count:""));
+    if(e.where)L.push("    where: "+e.where);
+    if(e.url)L.push("    url:   "+e.url);
+    if(e.status!=null)L.push("    status:"+e.status);
+    if(e.stack)L.push("    stack: "+String(e.stack).replace(/\n/g,"\n           "));
+    L.push("");
+  });
+  if(proxyErrs.length){L.push("");L.push("## PROXY-LOG");L.push("");proxyErrs.forEach(e=>{
+    if(typeof e==="string"){L.push(e);return;}
+    const t=e.ts?new Date((e.ts>2e10?e.ts:e.ts*1000)):null;
+    L.push("["+(t?t.toISOString():"?")+"] "+(e.where||e.tag||"")+" "+(e.message||e.msg||JSON.stringify(e)));
+  });}
+  const fn="bcc-fehlerlog-"+now.toISOString().slice(0,19).replace(/[:T]/g,"-")+".txt";
+  downloadText(fn,L.join("\n"));
+  toast("Fehler-Log exportiert · "+errs.length+" Einträge");
+}
 function maybeOverloadNotify(){const h=BCC.health;if(!h||document.visibilityState==="visible")return;
   if(h.level==="crit"&&BCC._lastLvl!=="crit"&&window.Notification&&Notification.permission==="granted"){
     try{new Notification("BCC — System kritisch",{body:`Swap ${h.swap?h.swap.usedPct:"?"}% · Temp ${h.temp}°C`})}catch(e){}}
@@ -1775,7 +1847,9 @@ function renderTaskChat(c){const{p,t}=findTask(BCC.state.taskId);
 }
 
 /* ---------------- OVERVIEW PANEL (Tasks) ---------------- */
-function renderOverviewPanel(){const o=$("#overview");o.innerHTML="";
+function renderOverviewPanel(){const o=$("#overview");
+  const _ovPrev=(document.querySelector("#overview .ov-scroll")||{}).scrollTop||0;
+  o.innerHTML="";
   V65.tree();
   const id=V65.routeNodeId();const node=V65.node(id);
   const layerLabel={overview:"König",workspace:"Minister",project:"Politiker",task:"Angestellter"}[node.kind]||"Ebene";
@@ -1800,16 +1874,21 @@ function renderOverviewPanel(){const o=$("#overview");o.innerHTML="";
       row.innerHTML=`<span class="tw">${tw}</span><span class="nd"></span><span class="nm">${n.emoji?_v65esc(n.emoji)+" ":""}${_v65esc(n.name)}</span><span class="who">${who}</span>`;
       if(isTask){
         const t=n.raw;const act=V65.actionOf(t);
-        if(act==="done"){row.classList.add("done");}
-        else if(act==="pause"){const pb=el("button","ovplay");pb.innerHTML=IC_PAUSE;pb.title="Stoppen";pb.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(pb);}
-        else if(act==="ok"){const okb=el("button","ovok");okb.textContent="OK";okb.title="Zu Idee entwickeln";okb.onclick=e=>{e.stopPropagation();V65.toIdea(t)};row.append(okb);}
-        else if(act==="suggest"){const x=el("button","ovx");x.textContent="\u2715";x.title="Ablehnen";x.onclick=e=>{e.stopPropagation();V65.reject(t)};row.append(x);const pb=el("button","ovplay");pb.innerHTML=IC_PLAY;pb.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(pb);}
+        if(act==="done")row.classList.add("done");
+        // V6.6.2: EINHEITLICH — jeder Task: ✕ ablehnen/löschen (auch wenn gelb) + ▶ Auto-Play (⏸ wenn er gerade läuft)
+        const x=el("button","ovx");x.textContent="\u2715";x.title="Ablehnen / löschen";x.onclick=e=>{e.stopPropagation();V65.reject(t)};row.append(x);
+        if(act==="pause"){const pb=el("button","ovplay");pb.innerHTML=IC_PAUSE;pb.title="Stoppen";pb.onclick=e=>{e.stopPropagation();togglePlay(t)};row.append(pb);}
         else{const pb=el("button","ovplay");pb.innerHTML=IC_PLAY;pb.title="Auto-Play";pb.onclick=e=>{e.stopPropagation();V65.play(t)};row.append(pb);}
         row.onclick=()=>go("task",n.taskId);
       }else{
         if(V65.status6(n)==="gruen")row.classList.add("done");
         if(hasKids){const c=el("span","cnt");c.textContent=n.children.length;row.append(c);
           const eye=el("button","oveye");eye.innerHTML=exp?IC_EYE:IC_EYE_OFF;eye.title=exp?"Zuklappen":"Aufklappen";eye.onclick=e=>{e.stopPropagation();V65.ovExp()[n.id]=!exp;rerender()};row.append(eye);}
+        // V6.6.2: EINHEITLICH auch bei Chats — ✕ löschen (mit Rückfrage → .trash) + ▶ Auto-Play
+        if(n.kind==="project"){
+          const x=el("button","ovx");x.textContent="\u2715";x.title="Chat ablehnen / löschen";x.onclick=e=>{e.stopPropagation();deleteProjectChat(n.slug)};row.append(x);
+          const pb=el("button","ovplay");pb.innerHTML=IC_PLAY;pb.title="Auto-Play";pb.onclick=e=>{e.stopPropagation();togglePlayProject(n.slug)};row.append(pb);
+        }
         const op=el("button","ovopen");op.innerHTML='<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';op.title="\u00d6ffnen";op.onclick=e=>{e.stopPropagation();go("node",n.id)};row.append(op);
         row.onclick=()=>{if(hasKids){V65.ovExp()[n.id]=!exp;rerender();}else go("node",n.id);};
       }
@@ -1823,6 +1902,8 @@ function renderOverviewPanel(){const o=$("#overview");o.innerHTML="";
   acts.append(aChat);
   if(node.kind==="project"){const aT=el("button","ovaddtask","\uFF0B Task");aT.style.margin="0";aT.onclick=()=>openNewTask(node.slug);acts.append(aT);}
   o.append(acts);
+  // V6.5.9: Scroll-Position der rechten Leiste halten (kein Sprung beim 2,6s-Poll / Aufklappen)
+  if(_ovPrev){const ns=o.querySelector(".ov-scroll");if(ns)requestAnimationFrame(()=>{ns.scrollTop=_ovPrev});}
 }
 function openNewTask(slug,parentTaskId){const p=projectBySlug(slug);
   sheetOpen(`<div class="sheet-head"><span class="st">Neuer Task${p?" · "+p.name:""}</span><button class="x" id="shX">×</button></div>
@@ -1887,7 +1968,7 @@ function startPlayPoll(){if(BCC._playT)return;
     await refreshProjects();
     Object.keys(BCC.run).forEach(id=>{const{t}=findTask(id);if(t&&(t.running||["in_progress","done","blocked"].includes(t.status)))delete BCC.run[id]});
     renderSidebar();renderOverviewPanel();
-    if(BCC._curThread){const th=$("#thread");if(th)loadThread(BCC._curThread.session,th,BCC._curThread.proj,th.closest(".cscroll"))}
+    if(BCC._curThread){const th=$("#thread");if(th)loadThread(BCC._curThread.session,th,BCC._curThread.proj,th.closest(".cscroll"),{keep:true})}
     if(!anyRunning()){clearInterval(BCC._playT);BCC._playT=null}
   },2600)}
 
@@ -1915,6 +1996,10 @@ function buildComposer(sessionId,slug,thread,scroll,ctx){
   c.querySelector(".send").onclick=send;
   ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&window.innerWidth>860){e.preventDefault();send()}});
   const rec=c.querySelector(".rec"),tm=c.querySelector("#recTimer");if(!micAvailable())rec.classList.add("off");
+  // V6.6.1: Dateien per Drag&Drop direkt auf den Composer ziehen → landen als Anhang
+  c.addEventListener("dragover",e=>{if(e.dataTransfer&&[...(e.dataTransfer.types||[])].includes("Files")){e.preventDefault();c.classList.add("dropzone")}});
+  c.addEventListener("dragleave",e=>{if(e.target===c)c.classList.remove("dropzone")});
+  c.addEventListener("drop",e=>{if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length){e.preventDefault();c.classList.remove("dropzone");[...e.dataTransfer.files].forEach(f=>atts.push({file:f}));rp()}});
   setupRecorder(rec,tm,sessionId,slug,thread,scroll);return c;
 }
 
@@ -1931,7 +2016,6 @@ function setupScrollDown(scroll){
   BCC._scrollUpd=upd;upd();
 }
 async function loadThread(sessionId,thread,p,scroll,opts){
-  const _sameSess=BCC._shownSession===sessionId;
   const _prevTop=scroll?scroll.scrollTop:0;
   const _wasBottom=scroll?(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<60):true;
   BCC._curThread={session:sessionId,proj:p};let hist=await getChat(sessionId);thread.innerHTML="";
@@ -1945,15 +2029,26 @@ async function loadThread(sessionId,thread,p,scroll,opts){
     hist.slice(-200).forEach(m=>thread.append(bubble(m)));
   }
   if(scroll){setupScrollDown(scroll);requestAnimationFrame(()=>{
-    if(_sameSess&&!(opts&&opts.toBottom)){
-      // Refresh derselben Ansicht (z.B. Play-Loop): Position HALTEN — kein Sprung mehr.
+    if(opts&&opts.toBottom){ scroll.scrollTop=scroll.scrollHeight; BCC._scroll&&(BCC._scroll.lock=true); }
+    else if(opts&&opts.keep){
+      // V6.6.1: NUR der Hintergrund-Poll hält die Position (kein Sprung beim Auto-Refresh)
       if((BCC._scroll&&BCC._scroll.lock)||_wasBottom)scroll.scrollTop=scroll.scrollHeight;
       else scroll.scrollTop=_prevTop;
-    }else{ scroll.scrollTop=scroll.scrollHeight; BCC._scroll&&(BCC._scroll.lock=true); }
+    }
+    else{ scroll.scrollTop=0; BCC._scroll&&(BCC._scroll.lock=false); } // V6.6.1: JEDE echte Navigation startet OBEN
     BCC._scrollUpd&&BCC._scrollUpd();
   })}
   BCC._shownSession=sessionId;}
 function scrollEnd(sc){if(sc&&BCC._scroll&&BCC._scroll.lock)requestAnimationFrame(()=>{sc.scrollTop=sc.scrollHeight});BCC._scrollUpd&&BCC._scrollUpd()}
+function replyToMsg(m){
+  const ta=document.querySelector("#ci");if(!ta){toast("Kein offenes Chat-Feld");return}
+  const who=m.role==="me"?"Ich":"AlphaBatty";
+  const body=(m.text||(m.atts&&m.atts[0]&&("📎 "+(m.atts[0].name||"Datei")))||"Nachricht").replace(/\s+/g," ").trim().slice(0,140);
+  ta.value="> "+who+": "+body+"\n\n"+ta.value;
+  ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,130)+"px";
+  ta.focus();try{ta.setSelectionRange(ta.value.length,ta.value.length)}catch(_){}
+  ta.dispatchEvent(new Event("input"));
+}
 function bubble(m){if(m.audio){
     // V6.4.0: Audio = ruhiges Mikro-Logo + transkribierter Text. Animiert NUR während Transkription.
     const transcribing=!!m.transcribing;
@@ -1971,8 +2066,13 @@ function bubble(m){if(m.audio){
     return b}
   const b=el("div","msg "+(m.role==="me"?"me":"batty"));if(m.role!=="me")b.innerHTML=`<span class="mlabel">AlphaBatty${m.mock?' <span class="mock-tag">Mock</span>':""}</span>`;
   b.append(document.createTextNode(m.text||""));
-  if(m.atts&&m.atts.length){const wrap=el("div","atts");m.atts.forEach(a=>{if(a.url&&a.type&&a.type.startsWith("image/")){const im=el("img","athumb");im.src=a.url;wrap.append(im)}else{const c=el("span","att");c.textContent="📎 "+a.name;wrap.append(c)}});b.append(wrap)}
+  if(m.atts&&m.atts.length){const wrap=el("div","atts");m.atts.forEach(a=>{
+    if(a.url&&a.type&&a.type.startsWith("image/")){const im=el("img","athumb");im.src=a.url;im.title=a.name||"Bild";im.style.cursor="zoom-in";im.onclick=()=>openLightbox(a.url,a.name);wrap.append(im)}
+    else if(a.url){const c=el("a","att");c.href=a.url;c.target="_blank";c.rel="noopener";c.textContent="📎 "+(a.name||"Datei");wrap.append(c)}
+    else{const c=el("span","att");c.textContent="📎 "+(a.name||"Datei");wrap.append(c)}
+  });b.append(wrap)}
   if(m.text){const cp=el("button","copybtn","⧉ Kopieren");cp.onclick=e=>{e.stopPropagation();(navigator.clipboard?navigator.clipboard.writeText(m.text):Promise.reject()).then(()=>{cp.textContent="✓ Kopiert";setTimeout(()=>cp.textContent="⧉ Kopieren",1200)}).catch(()=>toast("Kopieren nicht verfügbar"))};b.append(cp)}
+  if(m.text||(m.atts&&m.atts.length)){const rb=el("button","replybtn","↩ Antworten");rb.onclick=e=>{e.stopPropagation();replyToMsg(m)};b.append(rb)}
   // V6.4.4: Timestamp bei jeder Nachricht
   if(m.ts){const ts=el("span","msgts",fmtMsgTime(m.ts));b.append(ts)}
   return b}
@@ -1993,6 +2093,10 @@ async function pushMsg(sessionId,thread,scroll,msg){const e=thread.querySelector
   if(msg.role==="me"){if(scroll){BCC._scroll&&(BCC._scroll.lock=true);requestAnimationFrame(()=>{scroll.scrollTop=scroll.scrollHeight});BCC._scrollUpd&&BCC._scrollUpd()}}
   else scrollEnd(scroll)}
 function scrollTop(sc){if(sc)requestAnimationFrame(()=>{sc.scrollTop=0});BCC._scrollUpd&&BCC._scrollUpd()}
+function openLightbox(url,name){sheetOpen(`<div class="sheet-head"><span class="st">${name?_v65esc(name):"Bild"}</span><button class="x" id="shX">×</button></div>`+
+  `<div style="text-align:center"><img src="${url}" style="max-width:100%;max-height:68vh;border-radius:10px"/></div>`+
+  `<a class="mi" href="${url}" target="_blank" rel="noopener" style="margin-top:10px"><span class="ico">⬇️</span>In neuem Tab öffnen / herunterladen</a>`);
+  $("#shX").onclick=sheetClose;}
 
 async function sendMessage(sessionId,slug,thread,scroll,text,files,ctx){
   // Auto-Match nur im Main-Chat ohne Projekt
@@ -2086,6 +2190,7 @@ async function renderCalendar(c){c.append(chead("📅 Kalender"));
 }
 async function renderCalendarInto(host){
   const map=await BCC.kv.get("calendar")||{};
+  const meta=await BCC.kv.get("calMeta")||{};
   const grid=el("div","cal-grid");const today=new Date();today.setHours(0,0,0,0);
   const dows=["Mo","Di","Mi","Do","Fr","Sa","So"];
   const start=new Date(today);const dow=(today.getDay()+6)%7;start.setDate(today.getDate()-dow);
@@ -2094,7 +2199,8 @@ async function renderCalendarInto(host){
     const dn=el("div","dn",`${dows[i%7]} ${d.getDate()}.`);dn.title="Task an diesem Tag anlegen";dn.onclick=()=>openCalCreate(iso);cell.append(dn);
     (map[iso]||[]).forEach(ref=>{const chip=el("div","cal-chip");const id=ref.replace(/^task-|^proj-/,"");
       const nm=ref.startsWith("task-")?(findTask(id).t?.title||id):(projectBySlug(id)?.name||id);
-      chip.setAttribute("draggable","true");chip.innerHTML=`<span class="cal-chip-label">${ref.startsWith("task-")?"☑":"📁"} ${nm}</span><span class="cx">×</span>`;
+      const mt=meta[iso+"|"+ref]||{};const extra=(mt.time?" · "+mt.time:"")+(mt.place?" · "+_v65esc(mt.place):"");
+      chip.setAttribute("draggable","true");chip.innerHTML=`<span class="cal-chip-label">${ref.startsWith("task-")?"☑":"📁"} ${nm}${extra}</span><span class="cx">×</span>`;
       chip.addEventListener("dragstart",()=>BCC._dragCal={ref,from:iso});
       chip.querySelector(".cx").onclick=async e=>{e.stopPropagation();const m=await BCC.kv.get("calendar")||{};m[iso]=(m[iso]||[]).filter(r=>r!==ref);await BCC.kv.set("calendar",m);toast("Aus Kalender entfernt");rerender()};
       chip.querySelector(".cal-chip-label").onclick=()=>{if(ref.startsWith("task-"))go("task",id);else go("project",id)};
@@ -2103,12 +2209,28 @@ async function renderCalendarInto(host){
     cell.addEventListener("dragleave",()=>cell.classList.remove("dragover"));
     cell.addEventListener("drop",async e=>{e.preventDefault();cell.classList.remove("dragover");const m=await BCC.kv.get("calendar")||{};m[iso]=m[iso]||[];
       if(BCC._dragCal){if(BCC._dragCal.from!==iso){m[BCC._dragCal.from]=(m[BCC._dragCal.from]||[]).filter(r=>r!==BCC._dragCal.ref);if(!m[iso].includes(BCC._dragCal.ref))m[iso].push(BCC._dragCal.ref)}BCC._dragCal=null;await BCC.kv.set("calendar",m);toast("Verschoben");rerender();return}
-      if(BCC._dragTask){const ref="task-"+BCC._dragTask;if(!m[iso].includes(ref))m[iso].push(ref);BCC._dragTask=null;await BCC.kv.set("calendar",m);toast("In Kalender gelegt");rerender()}});
+      if(BCC._dragTask){const ref="task-"+BCC._dragTask;BCC._dragTask=null;calDropPrompt(iso,ref);return}});
     // V6.4.4: Rechtsklick auf ein Datum → bestehenden Task/Projekt zuordnen oder neuen anlegen
     cell.addEventListener("contextmenu",e=>{e.preventDefault();openCalAssign(iso)});
     grid.append(cell)}
   host.append(grid);
   const hint=el("div","cal-hint","Tipp: Task auf einen Tag ziehen, oder Rechtsklick auf ein Datum zum Zuordnen.");host.append(hint);
+}
+function calDropPrompt(iso,ref){
+  const id=ref.replace(/^task-|^proj-/,"");
+  const nm=ref.startsWith("task-")?(findTask(id).t?.title||id):(projectBySlug(id)?.name||id);
+  const d=new Date(iso);const human=d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long"});
+  sheetOpen(`<div class="sheet-head"><span class="st">📅 ${_v65esc(nm)} → ${human}</span><button class="x" id="shX">×</button></div>`+
+    `<label class="fld" style="display:block;margin:4px 18px">Uhrzeit (optional)<input id="cdTime" type="time" style="width:100%"></label>`+
+    `<label class="fld" style="display:block;margin:12px 18px">Ort (optional)<input id="cdPlace" placeholder="z.B. Atelier, Zoom, NYC…" style="width:100%"></label>`+
+    `<button class="mi" id="cdGo" style="margin:14px 18px"><span class="ico">✓</span>In Kalender legen</button>`);
+  $("#shX").onclick=sheetClose;
+  $("#cdGo").onclick=async()=>{
+    const time=$("#cdTime").value||"";const place=($("#cdPlace").value||"").trim();
+    const m=await BCC.kv.get("calendar")||{};m[iso]=m[iso]||[];if(!m[iso].includes(ref))m[iso].push(ref);await BCC.kv.set("calendar",m);
+    if(time||place){const meta=await BCC.kv.get("calMeta")||{};meta[iso+"|"+ref]={time,place};await BCC.kv.set("calMeta",meta)}
+    sheetClose();toast("In Kalender gelegt"+(time?" · "+time:""));rerender();
+  };
 }
 function openCalAssign(iso){
   const d=new Date(iso);const human=d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long"});
@@ -2436,6 +2558,7 @@ V65.projStatus6=(p)=>{ const ts=(p&&p.tasks)||[];
   if(ts.some(t=>!["done","idea"].includes(t.status)))return"blau";
   return"grau"; };
 V65.status6=(n)=>{ if(!n)return"grau";
+  if(n.kind==="project"&&n.raw&&n.raw.color)return n.raw.color; // V6.6.0: data.json ist Quelle der Wahrheit
   const ovr=(BCC.ov&&BCC.ov.status6||{})[n.id]; if(ovr)return ovr;
   if(n.kind==="task")return V65.taskStatus6(n.raw);
   if(n.kind==="project")return V65.projStatus6(n.raw);
@@ -2444,7 +2567,10 @@ V65.status6=(n)=>{ if(!n)return"grau";
   if(set.length&&set.every(s=>s==="gruen"))return"gruen";
   if(set.length&&set.every(s=>s==="violett"))return"violett";
   if(!set.length)return"grau"; return"blau"; };
-V65.dotCls=(k)=>({rot:"red",gelb:"yellow",gruen:"green"}[k]||"");
+V65.dotCls=(k)=>({grau:"grey",violett:"violett",blau:"blau",gelb:"yellow",gruen:"green",rot:"red"}[k]||"");
+// V6.6.2: in der linken Liste den manuell gesetzten 6-Status sichtbar machen (z.B. 🔵 geplant = elektrisch blau);
+// aktive Laufzeit-Zustände (busy/läuft/Timeout = blink) haben Vorrang.
+V65.dotSix=(six, fallbackCls, blink)=> blink ? fallbackCls : (V65.dotCls(six)||fallbackCls);
 
 V65.tree=function(){
   const projects=(BCC.state.projects||[]).filter(p=>!p.archived);
@@ -2642,7 +2768,8 @@ V65.setColor=async function(node,k){
   BCC.ov.status6=BCC.ov.status6||{};
   if(k)BCC.ov.status6[node.id]=k;else delete BCC.ov.status6[node.id];
   if(node.kind==="task"){const us=V65.STATUS6_TO_TASK[k];if(us){await mutateTask(node.taskId,{status:us});return;}}
-  try{await saveOverrides()}catch(_){}
+  else if(node.kind==="project"){if(node.raw)node.raw.color=k||null;await patchProject(node.slug,{color:k||null});} // V6.6.0: deploy-fest in data.json
+  else{try{await saveOverrides()}catch(_){}}
   V65.tree();rerender();
   const s=V65.ST[k];if(s)toast("Farbe → "+s.emoji+" "+s.label);
 };
@@ -2770,7 +2897,8 @@ function renderRoyalBlock(w,whoKey){
   ".ovc-more{display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;color:var(--muted);cursor:pointer;font:inherit;font-size:13px}"+
   ".pdot.grey{background:var(--muted)}"+
   ".oveye{flex:0 0 auto;width:30px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--muted);cursor:pointer;margin-left:4px}"+
-  ".oveye svg{width:15px;height:15px}.oveye:hover{color:var(--ink);border-color:var(--accent)}";
+  ".oveye svg{width:15px;height:15px}.oveye:hover{color:var(--ink);border-color:var(--accent)}"+
+  ".runsince{font:600 11px/1 var(--mono);color:var(--s-progress,var(--muted));margin-right:6px;white-space:nowrap}";
   document.head.appendChild(s);})();
 
 function renderNode(c){
@@ -2828,7 +2956,10 @@ function renderNode(c){
   ".v65-csub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}"+
   ".v65-emojis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}"+
   ".v65-emojis button{font-size:22px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer}"+
-  ".chead .cplus{border:1px solid var(--line);border-radius:9px}.chead .cplus:hover{border-color:var(--accent);color:var(--accent)}";
+  ".chead .cplus{border:1px solid var(--line);border-radius:9px}.chead .cplus:hover{border-color:var(--accent);color:var(--accent)}"+
+  ".replybtn{margin-left:6px;font:600 10px/1 var(--mono);color:var(--muted);background:none;border:0;cursor:pointer;opacity:.7}"+
+  ".replybtn:hover{opacity:1;color:var(--ink)}"+
+  ".composer.dropzone{outline:2px dashed var(--accent,var(--ink));outline-offset:3px;border-radius:12px}";
   document.head.appendChild(s);})();
 
 /* ============================================================================
@@ -2950,10 +3081,10 @@ async function boot(){
   if(location.protocol.startsWith("http")&&!/(^|\.)claude/.test(location.hostname)&&location.hostname!=="")BCC.goLive();
   const live=!!BCC.config.chatEndpoint;$("#conn").dataset.live=live?"1":"0";$("#connTxt").textContent=live?"Live":"Mock";
   $("#brandVer").textContent="v"+BCC.VERSION;
-  if(BCC.config.systemHealthEndpoint){fetch(BCC.config.systemHealthEndpoint.replace("system-health","whereami")).then(r=>r.json()).then(w=>{if(w&&w.version){BCC.VERSION=w.version;$("#brandVer").textContent="v"+w.version}}).catch(()=>{})}
+  if(BCC.config.systemHealthEndpoint){fetch(BCC.config.systemHealthEndpoint.replace("system-health","whereami")).then(r=>r.json()).then(w=>{if(w&&w.version){BCC.health=BCC.health||{};BCC.health.proxyVersion=w.version;BCC.health.proxyBuild=w.build}}).catch(()=>{})}
   window.addEventListener("error",e=>{BCC.logError(e.message,e.error&&e.error.stack,(e.filename||"")+":"+e.lineno)});
   window.addEventListener("unhandledrejection",e=>{BCC.logError("Unhandled: "+(e.reason&&e.reason.message||e.reason),e.reason&&e.reason.stack,"promise")});
-  await loadWorkspaceDefs();await loadOverrides();await refreshProjects();await migrateLegacyWorkspaces();await refreshChatPrev();parseHash();rerender();startPolling();startHealthPoll();updThemeUI();
+  await loadWorkspaceDefs();await loadOverrides();await refreshProjects();await migrateLegacyWorkspaces();await migrateStructureToData();await refreshChatPrev();parseHash();rerender();startPolling();startHealthPoll();updThemeUI();
   if(BCC._migratedWs)toast(BCC._migratedWs+" Projekte den neuen Workspaces zugeordnet");
   if(typeof fetchHealth==="function"){fetchHealth().then(()=>applyHealthTopbar()).catch(()=>{})}
   if(window.Notification&&Notification.permission==="default"){try{Notification.requestPermission()}catch(e){}}

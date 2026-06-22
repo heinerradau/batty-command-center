@@ -36,8 +36,20 @@ QUEUE_DIR     = os.environ.get("BCC_QUEUE_DIR", "/tmp/bcc")
 AUDIO_DIR     = f"{QUEUE_DIR}/audio"
 
 # --- BCC Version (sichtbar in der App über „Batty Command" + GET /whereami) ---
-BCC_VERSION   = "6.4.9"
+BCC_VERSION   = "6.6.3"
 BCC_BUILD     = time.strftime("%Y-%m-%d", time.localtime())
+
+# --- Project Cache (V6.5.7p1) — entlastet /projects bei 36+ Projekten ---
+_PROJECTS_CACHE = None
+_PROJECTS_CACHE_TS = 0
+_PROJECTS_CACHE_TTL = int(os.environ.get("BCC_CACHE_TTL", "5"))
+_PROJECTS_CACHE_LOCK = threading.Lock()
+
+def invalidate_projects_cache(slug=None):
+    global _PROJECTS_CACHE, _PROJECTS_CACHE_TS
+    with _PROJECTS_CACHE_LOCK:
+        _PROJECTS_CACHE = None
+        _PROJECTS_CACHE_TS = 0
 
 # --- Robuste Pfad-Auflösung -------------------------------------------------
 # Problem (Heiner, 16.6.): ClawBox-Tools rooten in /home/clawbox/clawbox/, NICHT /home/clawbox/.
@@ -376,7 +388,8 @@ def _dir_mtime(pdir):
             newest = max(newest, f.stat().st_mtime)
     return int(newest or pdir.stat().st_mtime)
 
-def read_projects():
+def _read_all_projects():
+    """Roh-Leser (ungecached). read_projects() cached via read_projects_cached()."""
     res = []
     root = Path(PROJECTS_DIR)
     if not root.exists():
@@ -385,6 +398,8 @@ def read_projects():
         if not pdir.is_dir():
             continue
         slug = pdir.name
+        if slug.startswith("."):
+            continue
         try:
             res.append(_read_one_project(pdir, slug))
         except Exception as e:
@@ -397,6 +412,19 @@ def read_projects():
                         "openTasks": 0, "updatedAt": 0, "md": {"vision": "", "status": "", "tasks": ""},
                         "hasTasksMd": False, "readError": str(e)[:200]})
     return res
+
+def read_projects():
+    """Cached project list (TTL via BCC_CACHE_TTL env, default 5s)."""
+    global _PROJECTS_CACHE, _PROJECTS_CACHE_TS
+    now = time.time()
+    with _PROJECTS_CACHE_LOCK:
+        if _PROJECTS_CACHE is not None and (now - _PROJECTS_CACHE_TS) < _PROJECTS_CACHE_TTL:
+            return _PROJECTS_CACHE
+    data = _read_all_projects()
+    with _PROJECTS_CACHE_LOCK:
+        _PROJECTS_CACHE = data
+        _PROJECTS_CACHE_TS = time.time()
+    return data
 
 def _read_one_project(pdir, slug):
         vision_md = (pdir / "VISION.md").read_text() if (pdir / "VISION.md").exists() else ""
@@ -411,17 +439,19 @@ def _read_one_project(pdir, slug):
         overlay = {}
         if df.exists():
             try:
-                overlay = json.loads(df.read_text())
+                raw = json.loads(df.read_text())
+                overlay = raw if isinstance(raw, dict) else {}
             except Exception:
                 overlay = {}
         for k in ("name", "workspaces", "city", "tags", "prio", "pinned", "archived",
-                  "done", "statusLabel", "vision", "parentFolder"):
+                  "done", "statusLabel", "vision", "parentFolder", "emoji", "color"):
             if overlay.get(k) not in (None, "", [], {}):
                 p[k] = overlay[k]
         # Task-Overlay per Titel-Match (vision/prio/who/dependsOn/calendarDate/reason)
         if overlay.get("tasks"):
-            by_title = {(t.get("title") or "").strip().lower(): t for t in overlay["tasks"]}
-            by_id = {t.get("id"): t for t in overlay["tasks"] if t.get("id")}
+            safe_tasks = [t for t in overlay["tasks"] if isinstance(t, dict)]
+            by_title = {(t.get("title") or "").strip().lower(): t for t in safe_tasks}
+            by_id = {t.get("id"): t for t in safe_tasks if t.get("id")}
             for t in p["tasks"]:
                 o = by_id.get(t.get("id")) or by_title.get((t.get("title") or "").strip().lower())
                 if o:
@@ -431,7 +461,7 @@ def _read_one_project(pdir, slug):
                             t[k] = o[k]
             # rein in data.json definierte Tasks (ohne MD-Pendant) ergänzen
             if not md_tasks:
-                p["tasks"] = overlay["tasks"]
+                p["tasks"] = [t for t in overlay["tasks"] if isinstance(t, dict)]
         # V6.3.5: optionale Detail-Datei tasks/<id>.md pro Task einlesen (langer Kontext)
         tdir = pdir / "tasks"
         if tdir.is_dir():
@@ -458,6 +488,8 @@ def _read_one_project(pdir, slug):
         p.setdefault("city", None)
         p.setdefault("tags", [])
         p.setdefault("parentFolder", None)
+        p.setdefault("emoji", None)
+        p.setdefault("color", None)
         for t in p["tasks"]:
             t.setdefault("projectSlug", slug)
             t.setdefault("parentTaskId", None)
@@ -633,9 +665,29 @@ def mutate_project(slug, patch):
         if "name" in patch:     p["name"] = patch["name"]
         if "pinned" in patch:   p["pinned"] = bool(patch["pinned"])
         if "archived" in patch: p["archived"] = bool(patch["archived"])
+        if "parentFolder" in patch: p["parentFolder"] = patch["parentFolder"] or None
+        if "workspaces" in patch and isinstance(patch["workspaces"], list): p["workspaces"] = patch["workspaces"]
+        # V6.6.0: Struktur deploy-fest in data.json — Emoji & manuelle Farbe (status6) persistieren
+        if "emoji" in patch: p["emoji"] = patch["emoji"] or None
+        if "color" in patch: p["color"] = patch["color"] or None
     return _write_data(slug, m)
 
-def create_project(name, vision="", prio=None, workspaces=None, city=None, tags=None, quiet=False):
+def delete_project(slug):
+    """V6.5.5: sicheres Löschen — Ordner wandert nach .trash/, wird NICHT hart vernichtet."""
+    pdir = Path(PROJECTS_DIR) / slug
+    if not pdir.is_dir():
+        return {"ok": False, "error": "not found"}
+    trash = Path(PROJECTS_DIR) / ".trash"
+    trash.mkdir(exist_ok=True)
+    dest = trash / f"{slug}-{int(time.time())}"
+    try:
+        shutil.move(str(pdir), str(dest))
+        return {"ok": True, "trashed": str(dest)}
+    except Exception as e:
+        bcc_log(f"delete_project failed for {slug}: {e}", "delete_project", slug)
+        return {"ok": False, "error": str(e)}
+
+def create_project(name, vision="", prio=None, workspaces=None, city=None, tags=None, quiet=False, parent_folder=None):
     slug = slugify(name)
     pdir = Path(PROJECTS_DIR) / slug
     if pdir.exists():
@@ -648,6 +700,7 @@ def create_project(name, vision="", prio=None, workspaces=None, city=None, tags=
     data = {"slug": slug, "name": name, "vision": vision, "statusLabel": "Neu",
             "prio": prio, "pinned": False, "archived": False, "done": False,
             "workspaces": workspaces or [], "city": city, "tags": tags or [],
+            "parentFolder": parent_folder or None,
             "tasks": [], "updatedAt": int(time.time())}
     (pdir / "data.json").write_text(json.dumps(data, ensure_ascii=False, indent=2))
     if not quiet:
@@ -912,7 +965,9 @@ def _set_task_status(slug, task_id, status):
                     t["doneAt"] = int(time.time())
                 if status == "blocked" and "doneAt" in t:
                     t.pop("doneAt", None)
-    _write_data(slug, m)
+    ok = _write_data(slug, m)
+    if ok:
+        invalidate_projects_cache(slug)
 
 # ---- Lauf-Zustand: welche Tasks/Projekte laufen, welche sollen stoppen ----
 RUNNING   = set()      # task_ids, die gerade in einem Loop sind
@@ -954,9 +1009,11 @@ def _tc_append(task_id, role, text):
 
 FIRST_PROMPT = (
     "Arbeite den folgenden Task eigenständig und in mehreren Schritten ab — so weit du kommst.\n"
-    "TASK: {title}\nZIEL/VISION: {vision}\n\n"
+    "TASK: {title}\nPROJEKT-SLUG: {slug}\nZIEL/VISION: {vision}\n\n"
+    "WICHTIG: Alle Dateien NUR in projects/{slug}/ schreiben — KEINEN neuen Ordner anlegen.\n"
     "Nutze deine Werkzeuge und die Projektdateien. Brauchst du Heiners Input/Freigabe oder bist du blockiert, "
     "frag KONKRET und stoppe — rate nicht.\n"
+    "Audio-Dateien findest du in /tmp/bcc/audio/ (nicht im Workspace oder Shared).\n"
     "Beende JEDE Antwort mit GENAU EINER Zeile:\n"
     "STATUS: DONE        (Task vollständig erledigt)\n"
     "STATUS: CONTINUE    (du machst im nächsten Schritt weiter)\n"
@@ -986,7 +1043,7 @@ def run_task_loop(slug, task_id, max_turns=None):
                 _set_task_status(slug, task_id, "pending")
                 _tc_append(task_id, "batty", "⏹ Gestoppt.")
                 final = "stopped"; break
-            msg = (FIRST_PROMPT.format(title=task.get("title"), vision=task.get("vision") or "—")
+            msg = (FIRST_PROMPT.format(title=task.get("title"), slug=slug, vision=task.get("vision") or "—")
                    if i == 0 else CONT_PROMPT)
             reply, _ = call_openclaw(msg, f"task-{task_id}", slug)
             _tc_append(task_id, "batty", reply)
@@ -1167,10 +1224,12 @@ def system_health():
         h["maxParallel"] = max(1, int(free_gb // 0.8))
     except Exception:
         h["maxParallel"] = None
-    # Token (V6.3.3 Phase 1): AlphaBatty schreibt token-status.json — Proxy liest nur.
-    # Pfad-Kandidaten (erstes Existierendes wird benutzt):
+    # Token (V6.3.4): Live-Daten vom OpenClaw CLI (sessions list) — kein stale file mehr.
+    # ZWEI-TIER: 1) token-status.json falls frisch (<15 Min)  2) CLI-Subprocess-Fallback
     h["tokens"] = None
     h["tokensStale"] = None
+    _got_tokens = False
+    # Tier 1: token-status.json (Schnellpfad, falls AlphaBatty/Cron-Job es aktuell hält)
     _tok_paths = [os.environ.get("BCC_TOKEN_FILE"),
                   str(Path.home() / "bcc" / "token-status.json"),
                   "/home/clawbox/bcc/token-status.json",
@@ -1183,12 +1242,49 @@ def system_health():
             data = json.loads(p.read_text())
             age = int(time.time()) - int(data.get("updatedAt") or 0)
             data["ageSec"] = age
-            data["stale"] = age > 900    # älter als 15 Min = stale
-            h["tokens"] = data
-            h["tokensStale"] = data["stale"]
+            data["stale"] = age > 900
+            if not data["stale"]:
+                h["tokens"] = data
+                h["tokensStale"] = False
+                _got_tokens = True
             break
         except Exception as e:
             bcc_log(f"token-status read failed ({tp}): {e}", "system_health")
+    # Tier 2: Live-Subprocess — openclaw sessions list (kein Stale-Risiko)
+    if not _got_tokens:
+        try:
+            _oc_bin = os.environ.get("BCC_OPENCLAW_BIN", OPENCLAW_BIN)
+            _oc_cwd = os.environ.get("BCC_OPENCLAW_CWD", OPENCLAW_CWD)
+            result = subprocess.run(
+                [_oc_bin, "sessions", "list", "--agent", "main", "--json", "--limit", "all"],
+                capture_output=True, text=True, timeout=10, cwd=_oc_cwd
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                sl = json.loads(result.stdout)
+                sessions = sl.get("sessions", [])
+                if sessions:
+                    total_in = sum(s.get("inputTokens", 0) or 0 for s in sessions)
+                    total_out = sum(s.get("outputTokens", 0) or 0 for s in sessions)
+                    ctx_max = sessions[0].get("contextTokens", 1_000_000) or 1_000_000
+                    # Kontext-Usage: main-Session totalTokens als Proxy
+                    main_s = next((s for s in sessions if s.get("key") == "agent:main:main"), None)
+                    ctx_used = main_s.get("totalTokens", 0) or 0 if main_s else (sessions[0].get("totalTokens", 0) or 0)
+                    ctx_pct = round(100 * ctx_used / ctx_max) if ctx_max else 0
+                    h["tokens"] = {
+                        "tokensIn": total_in,
+                        "tokensOut": total_out,
+                        "contextUsed": ctx_used,
+                        "contextMax": ctx_max,
+                        "contextPct": ctx_pct,
+                        "cacheHitPct": 0,
+                        "cost": 0,
+                        "updatedAt": int(time.time()),
+                        "ageSec": 0,
+                        "stale": False,
+                    }
+                    h["tokensStale"] = False
+        except Exception as e:
+            bcc_log(f"token CLI fallback failed: {e}", "system_health")
     return h
 
 # ---------------------------------------------------------------- Refresh-Hook (E1) + Error-Log (G1)
@@ -1226,8 +1322,8 @@ def _error_to_task(msg, count, where, is_new):
         slug = ensure_project("bcc-debugging", "BCC Debugging")
         f = Path(PROJECTS_DIR) / slug / "TASKS.md"
         txt = f.read_text() if f.exists() else "# TASKS — BCC Debugging\n"
-        import struct as _struct
-        tag_id = f"err-{abs(hash(msg)) % 1000000:06d}"
+        import hashlib as _hl
+        tag_id = f"err-{_hl.md5(msg.encode()).hexdigest()[:6]}"
         # Pruefen ob dieser Fehler-Task schon existiert
         if tag_id in txt:
             if not is_new:
@@ -1444,14 +1540,34 @@ class BCCProxy(BaseHTTPRequestHandler):
             if "multipart/form-data" not in ctype:
                 return self._json({"error": "multipart erwartet"}, 400)
             fields, files = parse_multipart(ctype, body)
-            audio = next((f for f in files if f["field"] == "audio"), files[0] if files else None)
-            if not audio:
+            audio_file = next((f for f in files if f["field"] == "audio"), files[0] if files else None)
+            if not audio_file:
                 return self._json({"error": "kein audio"}, 400)
-            ext = "mp4" if ("mp4" in audio["ctype"] or "aac" in audio["ctype"]) else "webm"
+            ext = "mp4" if ("mp4" in audio_file["ctype"] or "aac" in audio_file["ctype"]) else "webm"
             apath = f"{AUDIO_DIR}/{uuid.uuid4().hex[:10]}.{ext}"
-            Path(apath).write_bytes(audio["data"])
-            mid = submit_audio(apath, audio["ctype"], fields.get("sessionId", "main"), fields.get("projectSlug"))
-            return self._json({"msgId": mid, "status": "pending"})
+            Path(apath).write_bytes(audio_file["data"])
+            mid = submit_audio(apath, audio_file["ctype"], fields.get("sessionId", "main"), fields.get("projectSlug"))
+            # V6.6.3: Audio-Pfad im KV speichern, damit Agenten die Datei finden können
+            session_id = fields.get("sessionId", "main")
+            try:
+                import subprocess as _sp
+                dur = ""
+                try:
+                    r = _sp.run(["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+                                 "-of", "csv=p=0", apath], capture_output=True, text=True, timeout=5)
+                    secs = float(r.stdout.strip())
+                    mins = int(secs // 60); ds = int(secs % 60)
+                    dur = f"{mins}:{ds:02d}"
+                except Exception:
+                    pass
+                key = f"bcc:chat:{session_id}"
+                hist = kv_get(key) or []
+                hist.append({"audio": True, "role": "me", "file": apath, "dur": dur,
+                             "text": "(Audio gesendet)", "ts": int(time.time())})
+                kv_set(key, hist[-200:])
+            except Exception as e:
+                bcc_log(f"audio KV write failed: {e}", "chat")
+            return self._json({"msgId": mid, "status": "pending", "audioPath": apath, "duration": dur})
 
         if path in ("/task", "/setup-api/task"):
             try:
@@ -1491,13 +1607,23 @@ class BCCProxy(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
+        if path in ("/project-delete", "/setup-api/project-delete"):
+            try:
+                d = json.loads(body or b"{}")
+                if not d.get("slug"):
+                    return self._json({"error": "slug fehlt"}, 400)
+                return self._json(delete_project(d["slug"]))
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
         if path in ("/project-create", "/setup-api/project-create"):
             try:
                 d = json.loads(body or b"{}")
                 if not d.get("name"):
                     return self._json({"error": "name fehlt"}, 400)
                 return self._json(create_project(d["name"], d.get("vision", ""), d.get("prio"),
-                                                 d.get("workspaces"), d.get("city"), d.get("tags")))
+                                                 d.get("workspaces"), d.get("city"), d.get("tags"),
+                                                 parent_folder=d.get("parentFolder")))
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
