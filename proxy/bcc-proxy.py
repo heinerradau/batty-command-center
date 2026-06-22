@@ -39,6 +39,23 @@ AUDIO_DIR     = f"{QUEUE_DIR}/audio"
 BCC_VERSION   = "6.6.3"
 BCC_BUILD     = time.strftime("%Y-%m-%d", time.localtime())
 
+# --- V6.7: Optionales Auth-Gate via Cookie/Header/Key-Parameter -----------
+BCC_AUTH_TOKEN = os.environ.get("BCC_AUTH_TOKEN", "").strip()
+if not BCC_AUTH_TOKEN:
+    try:
+        _secrets_path = Path(os.path.expanduser("~/.openclaw/secrets.json"))
+        if _secrets_path.exists():
+            _secrets_data = json.loads(_secrets_path.read_text())
+            BCC_AUTH_TOKEN = (_secrets_data.get("bcc") or {}).get("authToken", "")
+    except Exception:
+        pass
+AUTH_SKIP_PREFIXES = ["/widerruf", "/health", "/whereami",
+                      "/manifest.json", "/service-worker.js",
+                      "/icon-180.png", "/icon-192.png", "/icon-512.png", "/icon-512-maskable.png"]  # immer offen
+if not BCC_AUTH_TOKEN:
+    sys.stderr.write(f"[bcc {time.strftime('%H:%M:%S')}] WARNUNG: BCC_AUTH_TOKEN nicht gesetzt — Legacy-Modus, KEIN Auth-Gate!\n")
+    sys.stderr.flush()
+
 # --- Project Cache (V6.5.7p1) — entlastet /projects bei 36+ Projekten ---
 _PROJECTS_CACHE = None
 _PROJECTS_CACHE_TS = 0
@@ -1465,14 +1482,68 @@ class BCCProxy(BaseHTTPRequestHandler):
         except Exception:
             self._json({"error": "not found"}, 404)
 
+    # --- V6.7: Auth Gate -------------------------------------------------
+    def _check_auth(self):
+        """Returns True if request is authorized (or auth is disabled)."""
+        if not BCC_AUTH_TOKEN:
+            return True
+        # skip auth for public paths
+        path = self.path.split("?")[0]
+        for prefix in AUTH_SKIP_PREFIXES:
+            if path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?"):
+                return True
+        # check cookie
+        cookie_hdr = self.headers.get("Cookie", "")
+        for cookie in cookie_hdr.split(";"):
+            if cookie.strip().startswith("bcc_auth="):
+                if cookie.strip().split("=", 1)[1].strip() == BCC_AUTH_TOKEN:
+                    return True
+        # check X-BCC-Token header
+        if self.headers.get("X-BCC-Token", "") == BCC_AUTH_TOKEN:
+            return True
+        # check ?key=... parameter
+        qp = parse_qs(self.path.split("?")[1] if "?" in self.path else "")
+        if qp.get("key", [None])[0] == BCC_AUTH_TOKEN:
+            # set cookie and redirect without key
+            self.send_response(302)
+            self.send_header("Location", path)
+            self.send_header("Set-Cookie",
+                             f"bcc_auth={BCC_AUTH_TOKEN}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=31536000")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            return False  # handled, but not authorized in this request (redirect)
+        return False
+
+    def _auth_locked_page(self):
+        """Simple HTML page for unauthorized requests."""
+        html = """<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BCC · Locked</title>
+<style>body{background:#14141f;color:#e0e0e0;font-family:system-ui;display:flex;
+align-items:center;justify-content:center;height:100vh;margin:0}
+div{text-align:center;max-width:420px;padding:32px}
+h1{color:#f97316;font-size:1.6rem;margin:0 0 8px}
+p{color:#8b8fa3;line-height:1.5}
+code{background:#1e1e2e;padding:2px 8px;border-radius:4px;font-size:.85rem}</style></head>
+<body><div><h1>🔒 Batty Command Center</h1><p>Zugriff nur mit gültigem Access-Key.<br>
+<code>?key=●●●</code> an die URL anhängen.</p></div></body></html>"""
+        return self._file_str(html, "text/html; charset=utf-8", 401)
+
+    def _file_str(self, content, ctype, code=200):
+        data = content.encode("utf-8")
+        self._headers(code, ctype, len(data))
+        self.wfile.write(data)
+
     def do_OPTIONS(self):
         self._headers(204, "text/plain", 0)
 
     def do_GET(self):
+        if not self._check_auth():
+            return self._auth_locked_page()
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
         q = parse_qs(parsed.query)
-        if path == "/":
+        if path == "/" or path == "/index.html":
             return self._file(f"{STATIC_DIR}/index.html", "text/html; charset=utf-8")
         if path in STATIC_FILES:
             return self._file(f"{STATIC_DIR}{path}", STATIC_FILES[path])
@@ -1513,6 +1584,8 @@ class BCCProxy(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
+        if not self._check_auth():
+            return self._auth_locked_page()
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length) if length else b""
         ctype = self.headers.get("Content-Type", "")

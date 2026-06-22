@@ -15,7 +15,7 @@ running_funnel() {
 start_proxy() {
     echo "[$(date)] Starting BCC Proxy..." >> "$LOG"
     cd /home/clawbox/bcc
-    python3 bcc-proxy.py >> /tmp/bcc-proxy.log 2>&1 &
+    nohup python3 bcc-proxy.py >> /tmp/bcc-proxy.log 2>&1 & disown
     echo $! > "$PROXY_PID_FILE"
     sleep 2
     if curl -s --max-time 5 http://localhost:8888/health > /dev/null 2>&1; then
